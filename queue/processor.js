@@ -34,7 +34,7 @@ async function processJob(job) {
     updateStatus(job.id, 'cloning');
     addLog(job.id, 'cloning', 'Sending to Replit for cloning...');
 
-    const cloneResult = await cloneWebsite(job.id, job.website_url);
+    const cloneResult = await cloneWebsite(job.id, job.website_url, job.name);
     if (!cloneResult.success) {
       if (cloneResult.pending) {
         updateStatus(job.id, 'awaiting_replit');

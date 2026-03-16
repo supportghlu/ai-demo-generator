@@ -1,108 +1,100 @@
 /**
- * Website Cloner — Replit browser automation
+ * Website Cloner — AI-powered website cloning pipeline
  * 
- * STATUS: STUBBED — awaiting Replit credentials from Orien
- * 
- * When credentials are provided, this module will:
- * 1. Launch a Playwright browser instance
- * 2. Log into Replit with provided credentials
- * 3. Create a new Repl with the cloning prompt
- * 4. Wait for Replit Agent to finish building
- * 5. Inject widget scripts into the generated index.html
- * 6. Publish the Repl
- * 7. Return the published URL
- * 
- * Dependencies to add when implementing:
- * - playwright (npm install playwright)
- * 
- * The cloning prompt template is defined below and matches
- * the proven manual process.
+ * Flow:
+ * 1. Scrape the target website (content, structure, images, fonts, colors)
+ * 2. Feed scraped data to OpenAI to generate clean HTML/CSS/JS
+ * 3. Inject GHL AI widgets into the generated HTML
+ * 4. Deploy as a static demo site
+ * 5. Return the demo URL
  */
 
-const CLONING_PROMPT = (websiteUrl) => `Recreate the website located at ${websiteUrl} as accurately as possible.
-
-I confirm I have full permission and consent to replicate this website.
-
-Your task is to reproduce:
-• The exact content
-• The exact layout structure
-• The same navigation
-• The same sections
-• The same headings and body text
-• The same images (use the live image URLs from the website)
-• The same page structure
-• The same footer
-• The same embedded media
-• The same downloads section
-• The same product layout
-• The same blog structure
-
-The final result should visually and structurally match the live website as closely as possible.
-
-IMPORTANT
-Do NOT copy raw HTML, CSS, or JavaScript from the original source code.
-Rebuild it cleanly from scratch using original code while matching the visual output 1:1.
-
-Technical Requirements:
-HTML5
-Modern CSS (Flexbox/Grid)
-Minimal vanilla JavaScript
-Fully responsive design
-Sticky navigation
-Working dropdown menus
-Responsive video embeds
-Functional frontend contact forms
-SEO meta tags
-
-File structure must include:
-index.html
-style.css
-script.js
-
-Match: Fonts, Colors, Spacing, Alignment, Section order, Button styles, Hover effects`;
+import { scrapeWebsite } from './scraper.js';
+import { generateWebsite } from './ai-generator.js';
+import { injectWidgets, verifyWidgets } from './injector.js';
+import { deployDemo, generateSlug } from './deployer.js';
+import { addLog } from '../db.js';
 
 /**
- * Clone a website using Replit Agent
+ * Clone a website using AI
  * @param {string} jobId - The job ID for tracking
  * @param {string} websiteUrl - The URL to clone
+ * @param {string} [companyName] - Optional company name for the slug
  * @returns {Promise<{success: boolean, pending?: boolean, demoUrl?: string, message: string}>}
  */
-export async function cloneWebsite(jobId, websiteUrl) {
+export async function cloneWebsite(jobId, websiteUrl, companyName) {
   console.log(`[cloner] Job ${jobId}: Clone requested for ${websiteUrl}`);
-  
-  // Check for Replit credentials
-  const email = process.env.REPLIT_EMAIL;
-  const password = process.env.REPLIT_PASSWORD;
-  
-  if (!email || !password) {
-    console.log(`[cloner] Job ${jobId}: Replit credentials not configured — job queued for manual processing`);
+
+  // Check for OpenAI API key
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.log(`[cloner] Job ${jobId}: OPENAI_API_KEY not configured`);
     return {
       success: false,
       pending: true,
-      message: 'Awaiting Replit integration — credentials not yet configured'
+      message: 'OPENAI_API_KEY not configured — cannot generate website clone'
     };
   }
 
-  // TODO: Implement browser automation when credentials are available
-  // The implementation will go here:
-  //
-  // 1. const browser = await playwright.chromium.launch({ headless: true });
-  // 2. const page = await browser.newPage();
-  // 3. await page.goto('https://replit.com/login');
-  // 4. Fill email/password, submit login
-  // 5. Navigate to create new Repl
-  // 6. Paste CLONING_PROMPT(websiteUrl) into Agent chat
-  // 7. Wait for build completion (poll for "Deploy" button or similar)
-  // 8. Read generated index.html, inject widgets
-  // 9. Click publish/deploy
-  // 10. Capture published URL
-  // 11. return { success: true, demoUrl: publishedUrl, message: 'Demo generated' }
+  try {
+    // Step 1: Scrape the website
+    addLog(jobId, 'scraping', `Scraping website content from ${websiteUrl}...`);
+    const scrapeResult = await scrapeWebsite(websiteUrl);
+    
+    if (!scrapeResult.success) {
+      addLog(jobId, 'scrape_failed', `Scrape failed: ${scrapeResult.error}`);
+      return { success: false, message: `Website scrape failed: ${scrapeResult.error}` };
+    }
 
-  return {
-    success: false,
-    pending: true,
-    message: 'Replit automation not yet implemented'
-  };
+    const scrapedData = scrapeResult.data;
+    addLog(jobId, 'scraped', `Scraped: ${scrapedData.headings?.length || 0} headings, ${scrapedData.images?.length || 0} images, ${scrapedData.sections?.length || 0} sections`);
+
+    // Step 2: Generate website clone via AI
+    addLog(jobId, 'generating', 'Generating website clone via AI...');
+    const genResult = await generateWebsite(scrapedData, websiteUrl);
+
+    if (!genResult.success) {
+      addLog(jobId, 'generation_failed', `AI generation failed: ${genResult.error}`);
+      return { success: false, message: `AI generation failed: ${genResult.error}` };
+    }
+
+    addLog(jobId, 'generated', `Generated: HTML(${genResult.files.html.length}), CSS(${genResult.files.css.length}), JS(${genResult.files.js.length})`);
+
+    // Step 3: Inject AI widgets
+    addLog(jobId, 'injecting', 'Injecting GHL AI widgets...');
+    const injectedHtml = injectWidgets(genResult.files.html);
+    
+    if (!verifyWidgets(injectedHtml)) {
+      addLog(jobId, 'injection_warning', 'Widget verification failed — widgets may not have been injected correctly');
+    } else {
+      addLog(jobId, 'injected', 'AI chat and voice widgets injected successfully');
+    }
+
+    // Step 4: Deploy demo site
+    addLog(jobId, 'deploying', 'Deploying demo site...');
+    const slug = generateSlug(companyName || websiteUrl);
+    const deployResult = await deployDemo(slug, {
+      html: injectedHtml,
+      css: genResult.files.css,
+      js: genResult.files.js
+    });
+
+    if (!deployResult.success) {
+      addLog(jobId, 'deploy_failed', `Deploy failed: ${deployResult.error}`);
+      return { success: false, message: `Deploy failed: ${deployResult.error}` };
+    }
+
+    addLog(jobId, 'deployed', `Demo live at: ${deployResult.demoUrl}`);
+
+    return {
+      success: true,
+      demoUrl: deployResult.demoUrl,
+      message: `Demo generated and deployed at ${deployResult.demoUrl}`
+    };
+
+  } catch (err) {
+    console.error(`[cloner] Job ${jobId} failed:`, err);
+    addLog(jobId, 'error', `Unexpected error: ${err.message}`);
+    return { success: false, message: `Cloning failed: ${err.message}` };
+  }
 }
-
-export { CLONING_PROMPT };
