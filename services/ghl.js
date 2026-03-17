@@ -34,8 +34,9 @@ async function ghlRequest(method, path, body = null) {
  * Find a contact by email
  */
 export async function findContactByEmail(email) {
+  const locationId = process.env.GHL_LOCATION_ID;
   try {
-    const result = await ghlRequest('GET', `/contacts/search/duplicate?email=${encodeURIComponent(email)}`);
+    const result = await ghlRequest('GET', `/contacts/search/duplicate?locationId=${locationId}&email=${encodeURIComponent(email)}`);
     return result?.contact || null;
   } catch (err) {
     console.error(`[ghl] findContactByEmail failed: ${err.message}`);
@@ -51,7 +52,9 @@ export async function createContact({ name, email, phone, source }) {
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
+  const locationId = process.env.GHL_LOCATION_ID;
   return ghlRequest('POST', '/contacts/', {
+    locationId,
     firstName,
     lastName,
     email,
