@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import webhookRouter from './routes/webhook.js';
 import statusRouter from './routes/status.js';
 import { startProcessor } from './queue/processor.js';
+import { startEnhancedProcessor, getProcessorStats } from './queue/enhanced-processor.js';
 import { getJobStats } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,13 +57,15 @@ app.get('/demo/:slug', (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
-  const stats = getJobStats();
+  const jobStats = getJobStats();
+  const processorStats = getProcessorStats();
   res.json({
     status: 'ok',
-    service: 'AI Demo Generator',
-    version: '2.0.0',
+    service: 'AI Demo Generator Enhanced',
+    version: '3.0.0',
     uptime: Math.floor(process.uptime()),
-    jobs: stats
+    jobs: jobStats,
+    processor: processorStats
   });
 });
 
@@ -84,14 +87,40 @@ app.get('/', (req, res) => {
   });
 });
 
+// Root endpoint update
+app.get('/', (req, res) => {
+  res.json({
+    service: 'AI Demo Generator Enhanced',
+    version: '3.0.0',
+    features: [
+      'Industry Analysis & Optimization',
+      'Conversion-Focused Website Generation',
+      'AI Widget Integration',
+      'CRM & Email Automation'
+    ],
+    endpoints: {
+      webhook: 'POST /webhook/demo-request',
+      jobStatus: 'GET /status/:jobId',
+      dashboard: 'GET /dashboard',
+      demo: 'GET /demo/:slug',
+      health: 'GET /health'
+    }
+  });
+});
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`\n🤖 AI Demo Generator v2.0 running on port ${PORT}`);
+  console.log(`\n🚀 AI Demo Generator Enhanced v3.0 running on port ${PORT}`);
+  console.log(`   ✨ NEW: Industry Analysis + Conversion Optimization`);
   console.log(`   Dashboard: http://localhost:${PORT}/dashboard`);
   console.log(`   Health:    http://localhost:${PORT}/health`);
   console.log(`   Webhook:   POST http://localhost:${PORT}/webhook/demo-request`);
   console.log(`   Demos:     http://localhost:${PORT}/demo/:slug\n`);
   
-  // Start the job queue processor
-  startProcessor();
+  // Start the enhanced job queue processor
+  console.log('🔄 Starting Enhanced Queue Processor...');
+  startEnhancedProcessor();
+  
+  // Optionally keep original processor for fallback
+  // startProcessor();
 });
