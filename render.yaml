@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: ai-demo-generator
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: GHL_API_KEY
+        sync: false
+      - key: GHL_LOCATION_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: REPLIT_EMAIL
+        sync: false
+      - key: REPLIT_PASSWORD
+        sync: false
+    healthCheckPath: /health
+    autoDeploy: true
+    branch: main
