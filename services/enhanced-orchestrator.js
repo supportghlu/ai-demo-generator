@@ -3,15 +3,15 @@
  * Coordinates the full enhanced workflow with industry analysis and optimization
  */
 
-import { validateWebsite } from './validator.js';
+import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
 import { analyzeIndustry } from './industry-analyzer.js';
 import { optimizeForConversion } from './conversion-optimizer.js';
 import { generateEnhancedWebsite } from './enhanced-generator.js';
-import { injectAIWidgets } from './injector.js';
+import { injectWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
-import { updateCRM, createLeadRecord } from './ghl.js';
-import { sendDemoEmail } from './email.js';
+import { updateContact, upsertContactWithDemo } from './ghl.js';
+import { triggerDemoEmail } from './email.js';
 
 /**
  * Process enhanced demo generation with full optimization pipeline
@@ -28,7 +28,7 @@ export async function processEnhancedDemo(leadData) {
   try {
     // Step 1: Validate website URL
     console.log('[enhanced-orchestrator] Step 1/8: Validating URL...');
-    const validation = await validateWebsite(leadData.websiteUrl);
+    const validation = await validateUrl(leadData.websiteUrl);
     if (!validation.valid) {
       throw new Error(`URL validation failed: ${validation.error}`);
     }
@@ -82,22 +82,23 @@ export async function processEnhancedDemo(leadData) {
 
     // Step 6: Inject AI Widgets
     console.log('[enhanced-orchestrator] Step 6/8: Injecting AI widgets...');
-    const injectionResult = await injectAIWidgets(generationResult.files.html);
-    if (!injectionResult.success) {
-      errors.push(`AI widget injection warning: ${injectionResult.error}`);
+    try {
+      var enhancedHtml = injectWidgets(generationResult.files.html);
+      console.log('✅ AI widgets injected');
+    } catch (injectionError) {
+      errors.push(`AI widget injection warning: ${injectionError.message}`);
       // Continue with original HTML
       var enhancedHtml = generationResult.files.html;
-    } else {
-      var enhancedHtml = injectionResult.enhancedHtml;
-      console.log('✅ AI widgets injected');
+      console.error('⚠️ Widget injection failed:', injectionError.message);
     }
 
     // Step 7: Deploy Demo
     console.log('[enhanced-orchestrator] Step 7/8: Deploying demo...');
-    const deployResult = await deployDemo({
+    const slug = (leadData.companyName || leadData.name || 'demo').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const deployResult = await deployDemo(slug, {
       ...generationResult.files,
       html: enhancedHtml
-    }, leadData.companyName || leadData.name);
+    });
     
     if (!deployResult.success) {
       throw new Error(`Demo deployment failed: ${deployResult.error}`);
@@ -108,28 +109,30 @@ export async function processEnhancedDemo(leadData) {
     console.log('[enhanced-orchestrator] Step 8/8: Updating CRM and sending email...');
     
     // Update CRM with demo URL and analysis data
-    const crmData = {
-      demoUrl: deployResult.demoUrl,
-      industry: analysis.industry,
-      optimizationScore: analysis.optimizationScore,
-      generationTime: Math.round((Date.now() - startTime) / 1000),
-      enhancementType: 'industry_optimized'
-    };
-    
-    const crmResult = await updateCRM(leadData.contactId, crmData);
-    if (!crmResult.success) {
-      errors.push(`CRM update warning: ${crmResult.error}`);
+    try {
+      const crmResult = await upsertContactWithDemo({
+        name: leadData.name,
+        email: leadData.email,
+        phone: leadData.phone,
+        demoUrl: deployResult.demoUrl
+      });
+      console.log('✅ CRM updated with demo URL');
+    } catch (crmError) {
+      errors.push(`CRM update warning: ${crmError.message}`);
+      console.error('⚠️ CRM update failed:', crmError.message);
     }
 
     // Send enhanced demo email
-    const emailResult = await sendDemoEmail({
-      ...leadData,
-      industry: analysis.industry,
-      optimizationScore: analysis.optimizationScore
-    }, deployResult.demoUrl);
-    
-    if (!emailResult.success) {
-      errors.push(`Email delivery warning: ${emailResult.error}`);
+    try {
+      const emailResult = await triggerDemoEmail(
+        leadData.email, 
+        deployResult.demoUrl, 
+        leadData.name
+      );
+      console.log('✅ Email triggered:', emailResult.message);
+    } catch (emailError) {
+      errors.push(`Email delivery warning: ${emailError.message}`);
+      console.error('⚠️ Email trigger failed:', emailError.message);
     }
 
     const totalTime = Math.round((Date.now() - startTime) / 1000);

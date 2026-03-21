@@ -1,0 +1,31 @@
+{
+  "summary": {
+    "totalTests": 1,
+    "successful": 1,
+    "failed": 0,
+    "successRate": "100.0%",
+    "totalRunTime": "0.3s"
+  },
+  "performance": {
+    "averageProcessingTime": "0.0s",
+    "fastestTest": "Quick Test",
+    "slowestTest": "Quick Test"
+  },
+  "results": [
+    {
+      "site": "Quick Test",
+      "url": "https://example.com",
+      "complexity": "simple",
+      "success": true,
+      "processingTime": 38,
+      "expectedTime": 15000,
+      "performanceRatio": 0.002533333333333333,
+      "response": {
+        "status": "queued",
+        "jobId": "81900867-107b-4e87-b25b-f076e1ec2aee",
+        "message": "Demo generation queued"
+      },
+      "timestamp": "2026-03-21T14:23:28.445Z"
+    }
+  ]
+}

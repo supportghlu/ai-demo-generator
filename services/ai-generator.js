@@ -148,31 +148,58 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // --- System Prompts ---
 
-const HTML_SYSTEM = `You are an expert web developer. Generate ONLY the HTML for a website clone.
+const HTML_SYSTEM = `You are a premium web designer creating a DRAMATICALLY IMPROVED version of a website. Transform basic websites into modern, professional experiences that convert.
 
-Rules:
-- Clean HTML5 structure
-- Use the provided image URLs directly
-- Include Google Fonts link if fonts are specified
-- Reference style.css and script.js as external files
-- Include proper meta tags and title
-- Make navigation, sections, headings, and content match the original
-- Include ALL sections described
-- Use semantic HTML (header, nav, main, section, footer)
-- Forms should look correct but don't need to submit
+MISSION: Create a website that looks 10x better than the original while keeping the core business message.
+
+Requirements:
+- Modern HTML5 with premium structure and layout
+- Hero section with powerful value proposition and CTA
+- Feature/benefit sections with compelling copy
+- Social proof elements (testimonials, trust badges)
+- Professional service/product showcases
+- Contact section with clear call-to-action
+- Use provided image URLs directly but in premium layouts
+- Link to Google Fonts for modern typography
+- Reference style.css and script.js
+- Add classes for advanced styling (.hero, .features, .cta-button, etc.)
+
+Transform Strategy:
+- Turn basic content into benefit-focused headlines
+- Add trust signals and credibility elements
+- Create visual hierarchy that guides to conversion
+- Structure for animations and premium effects
+- Modern card-based layouts for services/products
 
 Output ONLY a single html code block. No explanations.`;
 
-const CSS_SYSTEM = `You are an expert CSS developer. Generate ONLY the CSS stylesheet for a website.
+const CSS_SYSTEM = `You are a premium web designer creating STUNNING, professional CSS that makes websites look expensive and modern.
 
-Rules:
-- Modern CSS with Flexbox/Grid
-- Fully responsive (mobile-first)
-- Match the colors, fonts, and spacing described
-- Sticky navigation
-- Hover effects on buttons and links
-- Clean, well-organized CSS
-- Professional styling that matches a real company website
+MISSION: Create CSS that transforms basic websites into premium experiences with modern design trends.
+
+Requirements:
+- Premium visual design with modern gradients, shadows, and effects
+- Advanced CSS Grid and Flexbox for sophisticated layouts
+- Smooth animations and hover effects
+- Professional typography with perfect spacing
+- Modern color schemes with premium feel
+- Hero sections with compelling backgrounds
+- Card-based designs with depth and shadows
+- Responsive design that looks amazing on all devices
+- Sticky navigation with transparency effects
+- Button styles that demand attention
+- Form styling that looks professional
+
+Modern Design Elements:
+- Gradient backgrounds and overlays
+- Subtle animations (fade-in, slide-up)
+- Professional shadows and depth
+- Modern border-radius and spacing
+- Premium color palettes
+- Typography that establishes credibility
+- Visual hierarchy that guides the eye
+
+Make it look like a $10,000 custom website, not a basic template.
 
 Output ONLY a single css code block. No explanations.`;
 

@@ -1,0 +1,168 @@
+{
+  "summary": {
+    "total": 1,
+    "successful": 1,
+    "failed": 0,
+    "successRate": "100.0%"
+  },
+  "results": [
+    {
+      "testName": "Custom Integration Test",
+      "url": "https://httpbin.org/json",
+      "success": true,
+      "jobId": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+      "totalTime": 22095,
+      "processingTime": 22056,
+      "expectedTime": 45000,
+      "performanceRatio": 0.4901333333333333,
+      "demoUrl": "http://localhost:3000/demo/integration-test-user",
+      "demoAccessible": true,
+      "demoHasContent": true,
+      "status": {
+        "job": {
+          "id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+          "name": "Integration Test User",
+          "email": "integration-test-1774103142901@example.com",
+          "phone": "+1234567890",
+          "website_url": "https://httpbin.org/json",
+          "status": "completed",
+          "demo_url": "http://localhost:3000/demo/integration-test-user",
+          "error_message": null,
+          "retry_count": 0,
+          "created_at": "2026-03-21T14:25:42.927Z",
+          "updated_at": "2026-03-21T14:26:04.809Z",
+          "completed_at": "2026-03-21T14:26:04.809Z"
+        },
+        "logs": [
+          {
+            "id": 197,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "created",
+            "message": "Job created for https://httpbin.org/json (Integration Test User, integration-test-1774103142901@example.com)",
+            "created_at": "2026-03-21T14:25:42.927Z"
+          },
+          {
+            "id": 198,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "validating",
+            "message": "Validating URL: https://httpbin.org/json",
+            "created_at": "2026-03-21T14:25:48.299Z"
+          },
+          {
+            "id": 199,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "validated",
+            "message": "URL is valid and reachable",
+            "created_at": "2026-03-21T14:25:48.715Z"
+          },
+          {
+            "id": 200,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "cloning",
+            "message": "Sending to Replit for cloning...",
+            "created_at": "2026-03-21T14:25:48.715Z"
+          },
+          {
+            "id": 201,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "scraping",
+            "message": "Scraping website content from https://httpbin.org/json...",
+            "created_at": "2026-03-21T14:25:48.715Z"
+          },
+          {
+            "id": 202,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "scraped",
+            "message": "Scraped: 0 headings, 0 images, 0 sections",
+            "created_at": "2026-03-21T14:25:49.126Z"
+          },
+          {
+            "id": 203,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "generating",
+            "message": "Generating website clone via AI...",
+            "created_at": "2026-03-21T14:25:49.126Z"
+          },
+          {
+            "id": 204,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "generated",
+            "message": "Generated: HTML(1383), CSS(1424), JS(994)",
+            "created_at": "2026-03-21T14:26:04.501Z"
+          },
+          {
+            "id": 205,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "injecting",
+            "message": "Injecting GHL AI widgets...",
+            "created_at": "2026-03-21T14:26:04.501Z"
+          },
+          {
+            "id": 206,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "injected",
+            "message": "AI chat and voice widgets injected successfully",
+            "created_at": "2026-03-21T14:26:04.501Z"
+          },
+          {
+            "id": 207,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "deploying",
+            "message": "Deploying demo site...",
+            "created_at": "2026-03-21T14:26:04.502Z"
+          },
+          {
+            "id": 208,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "deployed",
+            "message": "Demo live at: http://localhost:3000/demo/integration-test-user",
+            "created_at": "2026-03-21T14:26:04.503Z"
+          },
+          {
+            "id": 209,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "cloned",
+            "message": "Clone deployed at: http://localhost:3000/demo/integration-test-user",
+            "created_at": "2026-03-21T14:26:04.503Z"
+          },
+          {
+            "id": 210,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "updating_crm",
+            "message": "Updating contact in GoHighLevel...",
+            "created_at": "2026-03-21T14:26:04.503Z"
+          },
+          {
+            "id": 211,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "crm_warning",
+            "message": "CRM update failed (non-fatal): GHL API POST /contacts/ failed (401): {\"statusCode\":401,\"message\":\"Invalid JWT\"}",
+            "created_at": "2026-03-21T14:26:04.809Z"
+          },
+          {
+            "id": 212,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "emailing",
+            "message": "Sending demo email to integration-test-1774103142901@example.com...",
+            "created_at": "2026-03-21T14:26:04.809Z"
+          },
+          {
+            "id": 213,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "email_sent",
+            "message": "Demo email triggered",
+            "created_at": "2026-03-21T14:26:04.809Z"
+          },
+          {
+            "id": 214,
+            "job_id": "34f87ca7-3875-49d3-8ce6-92e9ca56d99e",
+            "step": "completed",
+            "message": "Demo generation complete: http://localhost:3000/demo/integration-test-user",
+            "created_at": "2026-03-21T14:26:04.809Z"
+          }
+        ]
+      },
+      "timestamp": "2026-03-21T14:26:04.993Z"
+    }
+  ]
+}

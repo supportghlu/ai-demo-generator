@@ -133,12 +133,12 @@ async function pollEnhanced() {
  * Determine if a job should use enhanced processing
  */
 function shouldUseEnhancedProcessing(job) {
-  // For now, use enhanced processing for all jobs
-  // Later could add logic to enable/disable based on:
+  // Re-enabled enhanced processing with proper Anthropic API configuration
+  // Enhanced features now using Anthropic API (not rate limited)
   // - Feature flags
-  // - Client tier
+  // - Client tier  
   // - Job parameters
-  return true;
+  return true; // Re-enabled with Anthropic API fix
 }
 
 /**

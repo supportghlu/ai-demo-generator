@@ -2,6 +2,10 @@ import express from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 import webhookRouter from './routes/webhook.js';
 import statusRouter from './routes/status.js';
 import { startProcessor } from './queue/processor.js';
@@ -45,11 +49,15 @@ app.get('/demo/:slug/*', (req, res) => {
   res.status(404).json({ error: 'File not found' });
 });
 
-// Serve demo index — /demo/:slug
+// Serve demo index — /demo/:slug (redirect to ensure trailing slash)
 app.get('/demo/:slug', (req, res) => {
   const slug = req.params.slug;
   const indexPath = join(DEMOS_DIR, slug, 'index.html');
   if (existsSync(indexPath)) {
+    // Redirect to ensure trailing slash for proper relative path resolution
+    if (!req.path.endsWith('/')) {
+      return res.redirect(301, req.path + '/');
+    }
     return res.sendFile(indexPath);
   }
   res.status(404).json({ error: 'Demo not found', slug });
@@ -121,6 +129,7 @@ app.listen(PORT, () => {
   console.log('🔄 Starting Enhanced Queue Processor...');
   startEnhancedProcessor();
   
-  // Optionally keep original processor for fallback
-  // startProcessor();
+  // Enable original processor for fallback during API rate limits
+  console.log('🔄 Starting Standard Processor (Fallback)...');
+  startProcessor();
 });

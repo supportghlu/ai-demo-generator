@@ -1,0 +1,168 @@
+{
+  "summary": {
+    "total": 1,
+    "successful": 1,
+    "failed": 0,
+    "successRate": "100.0%"
+  },
+  "results": [
+    {
+      "testName": "Custom Integration Test",
+      "url": "https://stripe.com",
+      "success": true,
+      "jobId": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+      "totalTime": 30014,
+      "processingTime": 29934,
+      "expectedTime": 45000,
+      "performanceRatio": 0.6652,
+      "demoUrl": "http://localhost:3000/demo/integration-test-user",
+      "demoAccessible": true,
+      "demoHasContent": true,
+      "status": {
+        "job": {
+          "id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+          "name": "Integration Test User",
+          "email": "integration-test-1774103781301@example.com",
+          "phone": "+1234567890",
+          "website_url": "https://stripe.com",
+          "status": "completed",
+          "demo_url": "http://localhost:3000/demo/integration-test-user",
+          "error_message": null,
+          "retry_count": 0,
+          "created_at": "2026-03-21T14:36:21.365Z",
+          "updated_at": "2026-03-21T14:36:50.843Z",
+          "completed_at": "2026-03-21T14:36:50.843Z"
+        },
+        "logs": [
+          {
+            "id": 251,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "created",
+            "message": "Job created for https://stripe.com (Integration Test User, integration-test-1774103781301@example.com)",
+            "created_at": "2026-03-21T14:36:21.366Z"
+          },
+          {
+            "id": 252,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "validating",
+            "message": "Validating URL: https://stripe.com",
+            "created_at": "2026-03-21T14:36:28.361Z"
+          },
+          {
+            "id": 253,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "validated",
+            "message": "URL is valid and reachable",
+            "created_at": "2026-03-21T14:36:29.011Z"
+          },
+          {
+            "id": 254,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "cloning",
+            "message": "Sending to Replit for cloning...",
+            "created_at": "2026-03-21T14:36:29.011Z"
+          },
+          {
+            "id": 255,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "scraping",
+            "message": "Scraping website content from https://stripe.com...",
+            "created_at": "2026-03-21T14:36:29.011Z"
+          },
+          {
+            "id": 256,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "scraped",
+            "message": "Scraped: 48 headings, 31 images, 30 sections",
+            "created_at": "2026-03-21T14:36:29.462Z"
+          },
+          {
+            "id": 257,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "generating",
+            "message": "Generating website clone via AI...",
+            "created_at": "2026-03-21T14:36:29.462Z"
+          },
+          {
+            "id": 258,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "generated",
+            "message": "Generated: HTML(5393), CSS(2283), JS(994)",
+            "created_at": "2026-03-21T14:36:50.495Z"
+          },
+          {
+            "id": 259,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "injecting",
+            "message": "Injecting GHL AI widgets...",
+            "created_at": "2026-03-21T14:36:50.496Z"
+          },
+          {
+            "id": 260,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "injected",
+            "message": "AI chat and voice widgets injected successfully",
+            "created_at": "2026-03-21T14:36:50.496Z"
+          },
+          {
+            "id": 261,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "deploying",
+            "message": "Deploying demo site...",
+            "created_at": "2026-03-21T14:36:50.496Z"
+          },
+          {
+            "id": 262,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "deployed",
+            "message": "Demo live at: http://localhost:3000/demo/integration-test-user",
+            "created_at": "2026-03-21T14:36:50.497Z"
+          },
+          {
+            "id": 263,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "cloned",
+            "message": "Clone deployed at: http://localhost:3000/demo/integration-test-user",
+            "created_at": "2026-03-21T14:36:50.497Z"
+          },
+          {
+            "id": 264,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "updating_crm",
+            "message": "Updating contact in GoHighLevel...",
+            "created_at": "2026-03-21T14:36:50.497Z"
+          },
+          {
+            "id": 265,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "crm_warning",
+            "message": "CRM update failed (non-fatal): GHL API POST /contacts/ failed (401): {\"statusCode\":401,\"message\":\"Invalid JWT\"}",
+            "created_at": "2026-03-21T14:36:50.842Z"
+          },
+          {
+            "id": 266,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "emailing",
+            "message": "Sending demo email to integration-test-1774103781301@example.com...",
+            "created_at": "2026-03-21T14:36:50.843Z"
+          },
+          {
+            "id": 267,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "email_sent",
+            "message": "Demo email triggered",
+            "created_at": "2026-03-21T14:36:50.843Z"
+          },
+          {
+            "id": 268,
+            "job_id": "11ee1bd3-4305-483b-a4f2-7d583d8301f7",
+            "step": "completed",
+            "message": "Demo generation complete: http://localhost:3000/demo/integration-test-user",
+            "created_at": "2026-03-21T14:36:50.843Z"
+          }
+        ]
+      },
+      "timestamp": "2026-03-21T14:36:51.310Z"
+    }
+  ]
+}
