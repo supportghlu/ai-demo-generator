@@ -11,7 +11,6 @@ import { generateEnhancedWebsite } from './enhanced-generator.js';
 import { injectWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
-import { triggerDemoEmail } from './email.js';
 
 /**
  * Process enhanced demo generation with full optimization pipeline
@@ -122,19 +121,48 @@ export async function processEnhancedDemo(leadData) {
       console.error('⚠️ CRM update failed:', crmError.message);
     }
 
-    // Send personalized demo email with analysis data
+    // Send demo directly to original GHL contact via SMS
     try {
-      const emailResult = await triggerDemoEmail(
-        leadData.email, 
-        deployResult.demoUrl, 
-        leadData.name,
-        analysisResult.analysis, // Pass website analysis for personalization
-        leadData.website
-      );
-      console.log('✅ Personalized email triggered:', emailResult.message);
-    } catch (emailError) {
-      errors.push(`Email delivery warning: ${emailError.message}`);
-      console.error('⚠️ Email trigger failed:', emailError.message);
+      const originalContactId = leadData.contactId || crmResult?.id;
+      
+      if (originalContactId) {
+        console.log(`[orchestrator] Sending demo to original contact ${originalContactId}`);
+        
+        // Generate SMS content
+        const firstName = leadData.name?.split(' ')[0] || 'there';
+        const industry = analysis?.industry || 'business';
+        
+        const smsMessage = `🎯 ${firstName}, your AI website demo is ready!
+
+Your personalized ${industry} demo with AI integration is now live.
+
+👉 View Demo: ${deployResult.demoUrl}
+
+This shows how AI can help your business:
+• Answer customer questions 24/7
+• Capture leads automatically
+• Convert more visitors to customers
+
+Try asking the AI questions as if you were a customer!
+
+Questions? Reply to this message.
+
+- GHLU Team`;
+
+        // Send SMS directly via GHL API
+        const smsResult = await sendGHLSMS(originalContactId, smsMessage);
+        console.log(`✅ Demo delivered via SMS to original contact ${originalContactId}`);
+        
+      } else {
+        console.log('⚠️ No original contact ID - demo link logged only');
+        console.log(`Demo URL for ${leadData.name} (${leadData.email}): ${deployResult.demoUrl}`);
+      }
+    } catch (smsError) {
+      errors.push(`SMS delivery warning: ${smsError.message}`);
+      console.error('⚠️ SMS delivery failed:', smsError.message);
+      
+      // Log the demo URL as fallback
+      console.log(`📧 Fallback: Demo URL ${deployResult.demoUrl} for ${leadData.name} (${leadData.email})`);
     }
 
     const totalTime = Math.round((Date.now() - startTime) / 1000);
@@ -265,4 +293,35 @@ export function getEnhancedStats() {
     topIndustries: [],
     conversionImprovements: []
   };
+}
+
+/**
+ * Send SMS via GHL API
+ */
+async function sendGHLSMS(contactId, message) {
+  const BASE_URL = 'https://services.leadconnectorhq.com';
+  const apiKey = process.env.GHL_API_KEY;
+  
+  if (!apiKey) throw new Error('GHL_API_KEY not configured');
+
+  const response = await fetch(`${BASE_URL}/conversations/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Version': '2021-07-28'
+    },
+    body: JSON.stringify({
+      type: 'SMS',
+      contactId,
+      message
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GHL SMS API failed (${response.status}): ${text}`);
+  }
+
+  return response.json();
 }
