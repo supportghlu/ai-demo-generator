@@ -16,6 +16,8 @@ db.exec(`
     email TEXT,
     phone TEXT,
     website_url TEXT NOT NULL,
+    contact_id TEXT,
+    company_name TEXT,
     status TEXT NOT NULL DEFAULT 'queued',
     demo_url TEXT,
     error_message TEXT,
@@ -38,8 +40,8 @@ db.exec(`
 // Prepared statements
 const stmts = {
   insertJob: db.prepare(`
-    INSERT INTO jobs (id, name, email, phone, website_url, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)
+    INSERT INTO jobs (id, name, email, phone, website_url, contact_id, company_name, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)
   `),
 
   updateJobStatus: db.prepare(`
@@ -86,9 +88,9 @@ const stmts = {
   `)
 };
 
-export function createJob(id, name, email, phone, websiteUrl) {
+export function createJob(id, name, email, phone, websiteUrl, contactId = null, companyName = null) {
   const now = new Date().toISOString();
-  stmts.insertJob.run(id, name, email, phone, websiteUrl, now, now);
+  stmts.insertJob.run(id, name, email, phone, websiteUrl, contactId, companyName, now, now);
   return stmts.getJob.get(id);
 }
 

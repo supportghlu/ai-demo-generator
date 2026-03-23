@@ -108,8 +108,9 @@ export async function processEnhancedDemo(leadData) {
     console.log('[enhanced-orchestrator] Step 8/8: Updating CRM and sending email...');
     
     // Update CRM with demo URL and analysis data
+    let crmResult = null;
     try {
-      const crmResult = await upsertContactWithDemo({
+      crmResult = await upsertContactWithDemo({
         name: leadData.name,
         email: leadData.email,
         phone: leadData.phone,

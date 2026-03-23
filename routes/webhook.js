@@ -36,6 +36,18 @@ router.post('/demo-request', (req, res) => {
       || body.customData?.website_url
       || null;
 
+    // Extract GHL contact ID for direct messaging
+    const contactId = body.contact_id 
+      || body.contactId 
+      || body.contact?.id
+      || body.id
+      || null;
+
+    const companyName = body.company_name 
+      || body.companyName 
+      || body.company
+      || null;
+
     // Validate required fields
     if (!websiteUrl) {
       console.log('[webhook] Rejected: no website URL provided');
@@ -51,12 +63,12 @@ router.post('/demo-request', (req, res) => {
       normalizedUrl = 'https://' + normalizedUrl;
     }
 
-    // Create job
+    // Create job with additional data for enhanced processing
     const jobId = uuidv4();
-    const job = createJob(jobId, name, email, phone, normalizedUrl);
-    addLog(jobId, 'created', `Job created for ${normalizedUrl} (${name}, ${email})`);
+    const job = createJob(jobId, name, email, phone, normalizedUrl, contactId, companyName);
+    addLog(jobId, 'created', `Job created for ${normalizedUrl} (${name}, ${email}) - Contact ID: ${contactId || 'none'}`);
 
-    console.log(`[webhook] Job ${jobId} created for ${normalizedUrl}`);
+    console.log(`[webhook] Job ${jobId} created for ${normalizedUrl} - Contact ID: ${contactId || 'none'}`);
 
     res.status(200).json({
       status: 'queued',
