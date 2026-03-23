@@ -1,7 +1,7 @@
 import { getNextQueuedJob, updateStatus, setError, retryJob, addLog, setDemoUrl } from '../db.js';
 import { validateUrl } from '../services/validator.js';
 import { cloneWebsite } from '../services/cloner.js';
-import { triggerDemoEmail } from '../services/email.js';
+// import { triggerDemoEmail } from '../services/email.js'; // Disabled - using SMS
 import { upsertContactWithDemo } from '../services/ghl.js';
 
 const POLL_INTERVAL = 10000; // 10 seconds
@@ -69,15 +69,33 @@ async function processJob(job) {
       addLog(job.id, 'crm_warning', `CRM update failed (non-fatal): ${err.message}`);
     }
 
-    // Step 4: Send demo email
-    updateStatus(job.id, 'emailing');
-    addLog(job.id, 'emailing', `Sending demo email to ${job.email}...`);
+    // Step 4: Send demo via SMS (standard processor fallback)
+    updateStatus(job.id, 'delivering');
+    addLog(job.id, 'delivering', `Sending demo to contact...`);
 
     try {
-      await triggerDemoEmail(job.email, demoUrl, job.name);
-      addLog(job.id, 'email_sent', 'Demo email triggered');
+      if (job.contact_id) {
+        // Send SMS to original contact
+        const firstName = job.name?.split(' ')[0] || 'there';
+        const smsMessage = `🎯 ${firstName}, your AI website demo is ready!
+
+Your personalized demo is now live and ready to test.
+
+👉 View Demo: ${demoUrl}
+
+Try asking the AI questions as if you were a customer visiting your site!
+
+Questions? Reply to this message.
+
+- GHLU Team`;
+
+        await sendGHLSMS(job.contact_id, smsMessage);
+        addLog(job.id, 'sms_sent', `Demo SMS sent to original contact ${job.contact_id}`);
+      } else {
+        addLog(job.id, 'delivery_logged', `Demo URL: ${demoUrl} for ${job.name} (${job.email})`);
+      }
     } catch (err) {
-      addLog(job.id, 'email_warning', `Email trigger failed (non-fatal): ${err.message}`);
+      addLog(job.id, 'delivery_warning', `Delivery failed (non-fatal): ${err.message}`);
     }
 
     // Step 5: Complete
@@ -116,4 +134,43 @@ export function startProcessor() {
   console.log('[processor] Queue processor started (polling every 10s)');
   setInterval(poll, POLL_INTERVAL);
   poll(); // Run immediately
+}
+
+export function getProcessorStats() {
+  return {
+    processing,
+    pollInterval: POLL_INTERVAL,
+    maxRetries: MAX_RETRIES
+  };
+}
+
+/**
+ * Send SMS via GHL API
+ */
+async function sendGHLSMS(contactId, message) {
+  const BASE_URL = 'https://services.leadconnectorhq.com';
+  const apiKey = process.env.GHL_API_KEY;
+  
+  if (!apiKey) throw new Error('GHL_API_KEY not configured');
+
+  const response = await fetch(`${BASE_URL}/conversations/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Version': '2021-07-28'
+    },
+    body: JSON.stringify({
+      type: 'SMS',
+      contactId,
+      message
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GHL SMS API failed (${response.status}): ${text}`);
+  }
+
+  return response.json();
 }
