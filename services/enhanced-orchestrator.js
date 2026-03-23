@@ -122,14 +122,16 @@ export async function processEnhancedDemo(leadData) {
       console.error('⚠️ CRM update failed:', crmError.message);
     }
 
-    // Send enhanced demo email
+    // Send personalized demo email with analysis data
     try {
       const emailResult = await triggerDemoEmail(
         leadData.email, 
         deployResult.demoUrl, 
-        leadData.name
+        leadData.name,
+        analysisResult.analysis, // Pass website analysis for personalization
+        leadData.website
       );
-      console.log('✅ Email triggered:', emailResult.message);
+      console.log('✅ Personalized email triggered:', emailResult.message);
     } catch (emailError) {
       errors.push(`Email delivery warning: ${emailError.message}`);
       console.error('⚠️ Email trigger failed:', emailError.message);
