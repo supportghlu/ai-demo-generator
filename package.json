@@ -1,6 +1,6 @@
 {
   "name": "ai-demo-generator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "AI Website Demo Generator - Orchestration service for GHLU",
   "main": "server.js",
