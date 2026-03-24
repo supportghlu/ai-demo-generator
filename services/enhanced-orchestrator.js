@@ -9,6 +9,7 @@ import { generateWebsite } from './ai-generator.js';
 import { injectWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
+import { sendDemoSMS } from './sms.js';
 
 /**
  * Process demo generation - simplified workflow
@@ -75,15 +76,28 @@ export async function processEnhancedDemo(leadData) {
 
     // Update CRM
     try {
-      const crmResult = await upsertContactWithDemo(
-        leadData.name,
-        leadData.email,
-        leadData.phone,
-        leadData.websiteUrl,
-        deployResult.demoUrl
-      );
+      const crmResult = await upsertContactWithDemo({
+        name: leadData.name,
+        email: leadData.email,
+        phone: leadData.phone,
+        demoUrl: deployResult.demoUrl
+      });
       if (crmResult?.id) {
         console.log(`✅ CRM updated: Contact ID ${crmResult.id}`);
+        
+        // Send SMS notification
+        try {
+          const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name);
+          if (smsResult.sent) {
+            console.log(`✅ SMS sent: ${smsResult.message}`);
+          } else {
+            console.log(`⚠️ SMS failed: ${smsResult.message}`);
+            errors.push('SMS delivery failed');
+          }
+        } catch (smsError) {
+          console.error('[orchestrator] SMS error:', smsError);
+          errors.push('SMS delivery error');
+        }
       }
     } catch (crmError) {
       console.error('[orchestrator] CRM error:', crmError);
