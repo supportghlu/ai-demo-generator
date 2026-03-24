@@ -22,47 +22,32 @@ export async function generateWebsite(scrapedData, originalUrl) {
   }
 
   const provider = anthropicKey ? 'Anthropic' : 'OpenAI';
-  console.log(`[ai-gen] Generating clone of ${originalUrl} via ${provider} (two-pass)...`);
+  console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
 
   try {
     const siteInfo = buildSiteDescription(scrapedData, originalUrl);
     
-    // Pass 1: Generate HTML
-    console.log('[ai-gen] Pass 1: Generating HTML...');
-    const htmlPrompt = buildHtmlPrompt(siteInfo);
+    // Single-pass: Generate complete HTML file with embedded CSS
+    console.log('[ai-gen] Generating complete enhanced HTML file...');
+    const prompt = buildSingleFilePrompt(siteInfo, originalUrl);
+    
     let html = anthropicKey 
-      ? await callAnthropic(anthropicKey, HTML_SYSTEM, htmlPrompt)
-      : await callOpenAI(openaiKey, HTML_SYSTEM, htmlPrompt);
+      ? await callAnthropic(anthropicKey, SINGLE_FILE_SYSTEM, prompt)
+      : await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt);
     
     html = extractCodeBlock(html, 'html') || html;
-    if (!html || html.length < 100) {
-      return { success: false, error: 'Failed to generate HTML' };
+    if (!html || html.length < 1000) {
+      return { success: false, error: 'Failed to generate complete HTML file' };
     }
-    console.log(`[ai-gen] HTML generated: ${html.length} chars`);
-
-    // Pass 2: Generate CSS
-    console.log('[ai-gen] Pass 2: Generating CSS...');
-    const cssPrompt = buildCssPrompt(siteInfo, html);
-    let css = anthropicKey
-      ? await callAnthropic(anthropicKey, CSS_SYSTEM, cssPrompt)
-      : await callOpenAI(openaiKey, CSS_SYSTEM, cssPrompt);
     
-    css = extractCodeBlock(css, 'css') || css;
-    console.log(`[ai-gen] CSS generated: ${css.length} chars`);
+    console.log(`[ai-gen] Complete HTML file generated: ${html.length} chars`);
 
-    // Minimal JS for interactivity
-    const js = generateBasicJs(scrapedData);
-
-    // Ensure HTML links to external files
-    if (!html.includes('style.css')) {
-      html = html.replace('</head>', '  <link rel="stylesheet" href="style.css">\n</head>');
-    }
-    if (!html.includes('script.js')) {
-      html = html.replace('</body>', '  <script src="script.js"></script>\n</body>');
-    }
-
-    const files = { html, css, js };
-    console.log(`[ai-gen] Complete: HTML(${files.html.length}), CSS(${files.css.length}), JS(${files.js.length})`);
+    // Return single HTML file (no separate CSS/JS needed)
+    const files = { 
+      html: html,
+      css: '', // Empty since CSS is embedded
+      js: ''   // Empty since JS is embedded
+    };
 
     return { success: true, files };
   } catch (err) {
@@ -148,60 +133,36 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // --- System Prompts ---
 
-const HTML_SYSTEM = `You are a premium web designer creating a DRAMATICALLY IMPROVED version of a website. Transform basic websites into modern, professional experiences that convert.
+const SINGLE_FILE_SYSTEM = `You are a conversion-focused web designer creating a DRAMATICALLY IMPROVED version of a business website optimized for brand awareness and conversion.
 
-MISSION: Create a website that looks 10x better than the original while keeping the core business message.
+MISSION: Create a complete, professional HTML file (with embedded CSS) that looks significantly better than the original while maintaining their brand essence and driving conversions.
 
-Requirements:
-- Modern HTML5 with premium structure and layout
-- Hero section with powerful value proposition and CTA
-- Feature/benefit sections with compelling copy
-- Social proof elements (testimonials, trust badges)
-- Professional service/product showcases
-- Contact section with clear call-to-action
-- Use provided image URLs directly but in premium layouts
-- Link to Google Fonts for modern typography
-- Reference style.css and script.js
-- Add classes for advanced styling (.hero, .features, .cta-button, etc.)
+BRAND STRATEGY:
+- Use their existing brand colors as the foundation but in sophisticated combinations
+- Maintain their brand personality while elevating the professionalism
+- Create trust and credibility through premium design elements
+- Structure everything to guide visitors toward booking/contact actions
 
-Transform Strategy:
-- Turn basic content into benefit-focused headlines
-- Add trust signals and credibility elements
-- Create visual hierarchy that guides to conversion
-- Structure for animations and premium effects
-- Modern card-based layouts for services/products
+CONVERSION OPTIMIZATION REQUIREMENTS:
+- Strong hero section with benefit-driven headline and dual CTAs
+- Trust signals immediately visible (reviews, guarantees, credentials)
+- Clear value propositions that explain WHY customers should choose them
+- Social proof throughout (testimonials, ratings, customer count)
+- Multiple conversion touchpoints (hero, pricing, final CTA)
+- Professional service/product showcase with benefits focus
+- FAQ section to overcome objections
+- Mobile-first responsive design
 
-Output ONLY a single html code block. No explanations.`;
+TECHNICAL REQUIREMENTS:
+- Single HTML file with embedded <style> and <script> tags
+- Use Google Fonts for professional typography
+- Modern CSS with gradients, shadows, and smooth animations
+- Fully responsive across all devices
+- Professional color scheme based on their brand
+- Card-based layouts with hover effects
+- Smooth scrolling and interactive elements
 
-const CSS_SYSTEM = `You are a premium web designer creating STUNNING, professional CSS that makes websites look expensive and modern.
-
-MISSION: Create CSS that transforms basic websites into premium experiences with modern design trends.
-
-Requirements:
-- Premium visual design with modern gradients, shadows, and effects
-- Advanced CSS Grid and Flexbox for sophisticated layouts
-- Smooth animations and hover effects
-- Professional typography with perfect spacing
-- Modern color schemes with premium feel
-- Hero sections with compelling backgrounds
-- Card-based designs with depth and shadows
-- Responsive design that looks amazing on all devices
-- Sticky navigation with transparency effects
-- Button styles that demand attention
-- Form styling that looks professional
-
-Modern Design Elements:
-- Gradient backgrounds and overlays
-- Subtle animations (fade-in, slide-up)
-- Professional shadows and depth
-- Modern border-radius and spacing
-- Premium color palettes
-- Typography that establishes credibility
-- Visual hierarchy that guides the eye
-
-Make it look like a $10,000 custom website, not a basic template.
-
-Output ONLY a single css code block. No explanations.`;
+OUTPUT: Complete HTML file only. No explanations, no separate CSS files.`;
 
 // --- Prompt Builders ---
 
@@ -239,56 +200,29 @@ function buildSiteDescription(data, url) {
   return desc;
 }
 
-function buildHtmlPrompt(siteInfo) {
-  return `Clone this website's HTML structure:\n\n${siteInfo}\n\nGenerate the complete index.html. Include ALL sections and content. Link to style.css and script.js.`;
+function buildSingleFilePrompt(siteInfo, originalUrl) {
+  return `Create a DRAMATICALLY IMPROVED version of this website optimized for brand awareness and conversion:
+
+ORIGINAL WEBSITE: ${originalUrl}
+
+WEBSITE DETAILS:
+${siteInfo}
+
+INSTRUCTIONS:
+Make this a more improved version of their site that is professional and clearly displays their service/product in a more sophisticated way, built for conversion and brand awareness.
+
+- Keep their brand colors but use them in premium, sophisticated combinations
+- Transform their content into benefit-focused, conversion-optimized copy
+- Add professional design elements: gradients, shadows, modern typography
+- Include trust signals, social proof, and multiple conversion touchpoints
+- Make it look like a $15,000 custom website vs their current basic site
+- Ensure mobile-first responsive design
+- Add smooth animations and professional interactions
+
+OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No separate files.`;
 }
 
-function buildCssPrompt(siteInfo, html) {
-  // Send the actual HTML so CSS targets the right elements
-  const htmlTrimmed = html.length > 3000 ? html.substring(0, 3000) + '\n<!-- truncated -->' : html;
-  
-  return `Generate the complete CSS stylesheet for this HTML:\n\n\`\`\`html\n${htmlTrimmed}\n\`\`\`\n\nSite info:\n${siteInfo}\n\nIMPORTANT: Style the EXACT elements and tags in the HTML above. The HTML uses plain tags without many classes, so target elements by tag name and structure (e.g., header nav ul, main > section, etc.). Make it look professional, modern, and fully responsive. Match the brand colors and fonts.`;
-}
 
-function generateBasicJs(data) {
-  let js = '// Website interactivity\n\n';
-  
-  // Mobile menu toggle
-  js += `// Mobile menu toggle
-document.addEventListener('DOMContentLoaded', () => {
-  const menuToggle = document.querySelector('.menu-toggle, .mobile-toggle, .hamburger');
-  const nav = document.querySelector('nav ul, .nav-menu, .mobile-menu');
-  
-  if (menuToggle && nav) {
-    menuToggle.addEventListener('click', () => {
-      nav.classList.toggle('active');
-      menuToggle.classList.toggle('active');
-    });
-  }
-
-  // Smooth scroll for anchor links
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', (e) => {
-      const target = document.querySelector(anchor.getAttribute('href'));
-      if (target) {
-        e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth' });
-      }
-    });
-  });
-
-  // Sticky nav
-  const header = document.querySelector('header');
-  if (header) {
-    window.addEventListener('scroll', () => {
-      header.classList.toggle('scrolled', window.scrollY > 50);
-    });
-  }
-});
-`;
-
-  return js;
-}
 
 // --- Helpers ---
 
