@@ -31,9 +31,14 @@ export async function processEnhancedDemo(leadData) {
     }
     console.log('✅ URL validated');
 
-    // Step 2: Scrape original website
+    // Step 2: Scrape original website with timeout
     console.log('[orchestrator] Step 2/4: Scraping website...');
-    const scrapeResult = await scrapeWebsite(leadData.websiteUrl);
+    const scrapePromise = scrapeWebsite(leadData.websiteUrl);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Scraping timeout after 30 seconds')), 30000)
+    );
+    
+    const scrapeResult = await Promise.race([scrapePromise, timeoutPromise]);
     if (!scrapeResult.success) {
       throw new Error(`Website scraping failed: ${scrapeResult.error}`);
     }
