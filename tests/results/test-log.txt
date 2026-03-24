@@ -1,6 +1,0 @@
-[2026-03-21T14:23:28.167Z] [INFO] ⚡ Running quick test with example.com
-[2026-03-21T14:23:28.407Z] [INFO] 🧪 Starting test: Quick Test (https://example.com)
-[2026-03-21T14:23:28.445Z] [INFO] ✅ Quick Test: 38ms (expected: 15000ms)
-[2026-03-21T14:23:28.445Z] [INFO] 📊 Generating test report...
-[2026-03-21T14:23:28.447Z] [INFO] 💾 Detailed report saved: tests/results/test-report-1774103008446.json
-[2026-03-21T14:23:28.448Z] [INFO] 📊 CSV report saved: tests/results/test-data-1774103008447.csv

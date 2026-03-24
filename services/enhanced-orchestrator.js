@@ -1,32 +1,29 @@
 /**
- * Enhanced Demo Generation Orchestrator
- * Coordinates the full enhanced workflow with industry analysis and optimization
+ * Demo Generation Orchestrator
+ * Simplified workflow: Scrape → Generate → Inject → Deploy
  */
 
 import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
-import { analyzeIndustry } from './industry-analyzer.js';
-import { optimizeForConversion } from './conversion-optimizer.js';
 import { generateWebsite } from './ai-generator.js';
 import { injectWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
 
 /**
- * Process enhanced demo generation with full optimization pipeline
+ * Process demo generation - simplified workflow
  * @param {object} leadData - Lead submission data
  * @returns {Promise<{success: boolean, demoUrl?: string, analysis?: object, errors?: array}>}
  */
 export async function processEnhancedDemo(leadData) {
   const startTime = Date.now();
   const errors = [];
-  let analysis = {};
   
-  console.log(`[enhanced-orchestrator] Starting enhanced demo for: ${leadData.websiteUrl}`);
+  console.log(`[orchestrator] Starting demo for: ${leadData.websiteUrl}`);
   
   try {
     // Step 1: Validate website URL
-    console.log('[enhanced-orchestrator] Step 1/8: Validating URL...');
+    console.log('[orchestrator] Step 1/4: Validating URL...');
     const validation = await validateUrl(leadData.websiteUrl);
     if (!validation.valid) {
       throw new Error(`URL validation failed: ${validation.error}`);
@@ -34,290 +31,97 @@ export async function processEnhancedDemo(leadData) {
     console.log('✅ URL validated');
 
     // Step 2: Scrape original website
-    console.log('[enhanced-orchestrator] Step 2/8: Scraping website...');
+    console.log('[orchestrator] Step 2/4: Scraping website...');
     const scrapeResult = await scrapeWebsite(leadData.websiteUrl);
     if (!scrapeResult.success) {
       throw new Error(`Website scraping failed: ${scrapeResult.error}`);
     }
     console.log(`✅ Website scraped: ${scrapeResult.data.sections?.length || 0} sections found`);
 
-    // Step 3: Industry Analysis
-    console.log('[enhanced-orchestrator] Step 3/8: Analyzing industry...');
-    const industryResult = await analyzeIndustry(scrapeResult.data, leadData.websiteUrl);
-    if (!industryResult.success) {
-      errors.push(`Industry analysis warning: ${industryResult.error}`);
-      // Continue with fallback analysis
-      analysis.industry = 'General Business';
-      analysis.optimizationScore = 5;
-    } else {
-      analysis = industryResult.analysis;
-      console.log(`✅ Industry identified: ${analysis.industry} (Score: ${analysis.optimizationScore}/10)`);
-    }
-
-    // Step 4: Conversion Optimization
-    console.log('[enhanced-orchestrator] Step 4/8: Creating optimization plan...');
-    const optimizationResult = await optimizeForConversion(scrapeResult.data, analysis, leadData.websiteUrl);
-    if (!optimizationResult.success) {
-      errors.push(`Optimization planning warning: ${optimizationResult.error}`);
-      // Continue with fallback optimization
-      var optimization = createFallbackOptimization(analysis);
-    } else {
-      var optimization = optimizationResult.optimization;
-      console.log(`✅ Optimization plan created: ${optimization.improvements?.length || 0} improvements`);
-    }
-
-    // Step 5: Generate Enhanced Website
-    console.log('[enhanced-orchestrator] Step 5/8: Generating enhanced website...');
+    // Step 3: Generate enhanced website
+    console.log('[orchestrator] Step 3/4: Generating enhanced website...');
     const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl);
     if (!generationResult.success) {
-      throw new Error(`Enhanced website generation failed: ${generationResult.error}`);
+      throw new Error(`Website generation failed: ${generationResult.error}`);
     }
-    console.log(`✅ Enhanced website generated: ${Object.keys(generationResult.files).join(', ')}`);
+    console.log(`✅ Enhanced website generated`);
 
-    // Step 6: Inject AI Widgets
-    console.log('[enhanced-orchestrator] Step 6/8: Injecting AI widgets...');
+    // Step 4: Inject AI Widgets & Deploy
+    console.log('[orchestrator] Step 4/4: Injecting widgets and deploying...');
+    
+    // Inject widgets
+    let enhancedHtml;
     try {
-      var enhancedHtml = injectWidgets(generationResult.files.html);
+      enhancedHtml = injectWidgets(generationResult.files.html);
       console.log('✅ AI widgets injected');
     } catch (injectionError) {
-      errors.push(`AI widget injection warning: ${injectionError.message}`);
-      // Continue with original HTML
-      var enhancedHtml = generationResult.files.html;
-      console.error('⚠️ Widget injection failed:', injectionError.message);
+      errors.push(`Widget injection warning: ${injectionError.message}`);
+      enhancedHtml = generationResult.files.html;
+      console.log('⚠️ Proceeding without AI widgets');
     }
 
-    // Step 7: Deploy Demo
-    console.log('[enhanced-orchestrator] Step 7/8: Deploying demo...');
-    const slug = (leadData.companyName || leadData.name || 'demo').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    // Deploy demo
+    const slug = generateCompanySlug(leadData.companyName || leadData.name || 'demo');
     const deployResult = await deployDemo(slug, {
-      ...generationResult.files,
-      html: enhancedHtml
+      html: enhancedHtml,
+      css: generationResult.files.css || '',
+      js: generationResult.files.js || ''
     });
-    
+
     if (!deployResult.success) {
       throw new Error(`Demo deployment failed: ${deployResult.error}`);
     }
     console.log(`✅ Demo deployed: ${deployResult.demoUrl}`);
 
-    // Step 8: Update CRM and Send Email
-    console.log('[enhanced-orchestrator] Step 8/8: Updating CRM and sending email...');
-    
-    // Update CRM with demo URL and analysis data
-    let crmResult = null;
+    // Update CRM
     try {
-      crmResult = await upsertContactWithDemo({
-        name: leadData.name,
-        email: leadData.email,
-        phone: leadData.phone,
-        demoUrl: deployResult.demoUrl
-      });
-      console.log('✅ CRM updated with demo URL');
-    } catch (crmError) {
-      errors.push(`CRM update warning: ${crmError.message}`);
-      console.error('⚠️ CRM update failed:', crmError.message);
-    }
-
-    // Send demo directly to original GHL contact via SMS
-    try {
-      const originalContactId = leadData.contactId || crmResult?.id;
-      
-      if (originalContactId) {
-        console.log(`[orchestrator] Sending demo to original contact ${originalContactId}`);
-        
-        // Generate SMS content
-        const firstName = leadData.name?.split(' ')[0] || 'there';
-        const industry = analysis?.industry || 'business';
-        
-        const smsMessage = `🎯 ${firstName}, your AI website demo is ready!
-
-Your personalized ${industry} demo with AI integration is now live.
-
-👉 View Demo: ${deployResult.demoUrl}
-
-This shows how AI can help your business:
-• Answer customer questions 24/7
-• Capture leads automatically
-• Convert more visitors to customers
-
-Try asking the AI questions as if you were a customer!
-
-Questions? Reply to this message.
-
-- GHLU Team`;
-
-        // Send SMS directly via GHL API
-        const smsResult = await sendGHLSMS(originalContactId, smsMessage);
-        console.log(`✅ Demo delivered via SMS to original contact ${originalContactId}`);
-        
-      } else {
-        console.log('⚠️ No original contact ID - demo link logged only');
-        console.log(`Demo URL for ${leadData.name} (${leadData.email}): ${deployResult.demoUrl}`);
+      const crmResult = await upsertContactWithDemo(
+        leadData.name,
+        leadData.email,
+        leadData.phone,
+        leadData.websiteUrl,
+        deployResult.demoUrl
+      );
+      if (crmResult?.id) {
+        console.log(`✅ CRM updated: Contact ID ${crmResult.id}`);
       }
-    } catch (smsError) {
-      errors.push(`SMS delivery warning: ${smsError.message}`);
-      console.error('⚠️ SMS delivery failed:', smsError.message);
-      
-      // Log the demo URL as fallback
-      console.log(`📧 Fallback: Demo URL ${deployResult.demoUrl} for ${leadData.name} (${leadData.email})`);
+    } catch (crmError) {
+      console.error('[orchestrator] CRM error:', crmError);
+      errors.push('CRM update failed');
     }
 
-    const totalTime = Math.round((Date.now() - startTime) / 1000);
-    console.log(`🎉 Enhanced demo complete in ${totalTime}s: ${deployResult.demoUrl}`);
+    // Return success
+    const generationTime = Math.round((Date.now() - startTime) / 1000);
+    console.log(`[orchestrator] ✅ Demo completed in ${generationTime}s`);
 
     return {
       success: true,
       demoUrl: deployResult.demoUrl,
-      analysis: {
-        industry: analysis.industry,
-        optimizationScore: analysis.optimizationScore,
-        improvements: optimization.improvements?.length || 0,
-        generationTime: totalTime
-      },
+      analysis: { generationTime },
       errors: errors.length > 0 ? errors : undefined
     };
 
-  } catch (error) {
-    const totalTime = Math.round((Date.now() - startTime) / 1000);
-    console.error(`[enhanced-orchestrator] Enhanced demo failed after ${totalTime}s:`, error);
+  } catch (err) {
+    console.error(`[orchestrator] Demo failed:`, err);
+    const generationTime = Math.round((Date.now() - startTime) / 1000);
     
     return {
       success: false,
-      error: error.message,
-      analysis: analysis.industry ? {
-        industry: analysis.industry,
-        optimizationScore: analysis.optimizationScore,
-        generationTime: totalTime
-      } : undefined,
-      errors: errors
+      error: err.message,
+      analysis: { generationTime },
+      errors: [...errors, err.message]
     };
   }
 }
 
 /**
- * Fallback optimization when AI analysis fails
+ * Generate company slug from name
  */
-function createFallbackOptimization(analysis) {
-  return {
-    optimizedStructure: {
-      hero: {
-        headline: `Transform Your ${analysis.industry || 'Business'} Today`,
-        subheadline: 'Get proven results with our industry-leading solutions designed for your success',
-        cta: 'Get Started Now',
-        trustElement: 'Join thousands of satisfied customers who trust our solutions'
-      },
-      sections: [
-        {
-          type: 'problem',
-          headline: 'The Challenge You Face',
-          content: `Businesses in ${analysis.industry || 'your industry'} struggle with outdated systems and manual processes that limit growth`,
-          cta: null
-        },
-        {
-          type: 'solution',
-          headline: 'Our Proven Solution',
-          content: 'We provide cutting-edge solutions specifically designed for your industry needs',
-          cta: 'Learn More'
-        },
-        {
-          type: 'benefits',
-          headline: 'Why Choose Us',
-          content: 'Proven track record, industry expertise, and dedicated support for your success',
-          cta: 'See Results'
-        },
-        {
-          type: 'social-proof',
-          headline: 'Success Stories',
-          content: 'Real customers achieving real results with our solutions',
-          cta: 'Read More'
-        },
-        {
-          type: 'cta-final',
-          headline: 'Ready to Get Started?',
-          content: 'Join the growing number of successful businesses using our platform',
-          cta: 'Start Your Free Trial'
-        }
-      ],
-      footer: {
-        trustSignals: ['Money-back guarantee', '24/7 customer support', 'Secure & reliable'],
-        contactInfo: 'Multiple ways to reach our expert team'
-      }
-    },
-    improvements: [
-      'Enhanced conversion-focused headlines',
-      'Industry-specific messaging',
-      'Strategic trust signal placement',
-      'Optimized call-to-action positioning',
-      'Mobile-first responsive design'
-    ],
-    copywritingStrategy: {
-      tone: 'Professional and results-focused',
-      messagingFramework: 'Problem-agitation-solution-proof',
-      keyBenefits: ['Proven Results', 'Expert Support', 'Industry Focus']
-    },
-    conversionElements: [
-      'Strong value proposition',
-      'Social proof integration',
-      'Multiple strategic CTAs',
-      'Trust signal emphasis',
-      'Mobile optimization'
-    ],
-    designPrinciples: [
-      'Clean, professional layout',
-      'High-contrast action buttons',
-      'Intuitive navigation',
-      'Fast loading optimization',
-      'Accessibility compliance'
-    ],
-    industrySpecific: [
-      `Tailored for ${analysis.industry || 'business'} needs`,
-      'Industry-appropriate imagery',
-      'Sector-specific trust signals',
-      'Relevant case studies integration'
-    ]
-  };
-}
-
-/**
- * Get enhanced demo statistics
- */
-export function getEnhancedStats() {
-  // This would connect to your database to get real stats
-  return {
-    totalEnhancedDemos: 0,
-    avgOptimizationScore: 0,
-    avgGenerationTime: 0,
-    topIndustries: [],
-    conversionImprovements: []
-  };
-}
-
-/**
- * Send SMS via GHL API
- */
-async function sendGHLSMS(contactId, message) {
-  const BASE_URL = 'https://services.leadconnectorhq.com';
-  const apiKey = process.env.GHL_API_KEY;
-  
-  if (!apiKey) throw new Error('GHL_API_KEY not configured');
-
-  const response = await fetch(`${BASE_URL}/conversations/messages`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'Version': '2021-07-28'
-    },
-    body: JSON.stringify({
-      type: 'SMS',
-      contactId,
-      message
-    })
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`GHL SMS API failed (${response.status}): ${text}`);
-  }
-
-  return response.json();
+function generateCompanySlug(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, 50);
 }

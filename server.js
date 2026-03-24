@@ -8,7 +8,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 import webhookRouter from './routes/webhook.js';
 import statusRouter from './routes/status.js';
-import { startProcessor } from './queue/processor.js';
 import { startEnhancedProcessor, getProcessorStats } from './queue/enhanced-processor.js';
 import { getJobStats } from './db.js';
 
@@ -128,9 +127,6 @@ app.listen(PORT, () => {
   // Start the enhanced job queue processor
   console.log('🔄 Starting Enhanced Queue Processor...');
   startEnhancedProcessor();
-  
-  // Enable original processor for fallback during API rate limits
-  console.log('🔄 Starting Standard Processor (Fallback)...');
-  startProcessor();
+
 });
 console.log('Deployment timestamp: Mon Mar 23 13:15:00 GMT 2026');
