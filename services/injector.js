@@ -20,20 +20,28 @@ export function injectWidgets(html) {
     throw new Error('Invalid HTML content provided');
   }
 
-  // Try to inject before </body>
+  console.log('[injector] Injecting widgets into HTML...');
+
+  // Try to inject before </body> (most common)
   const bodyCloseIndex = html.lastIndexOf('</body>');
   if (bodyCloseIndex !== -1) {
+    console.log('[injector] Found </body> tag, injecting before it');
     return html.slice(0, bodyCloseIndex) + WIDGET_SCRIPTS + html.slice(bodyCloseIndex);
   }
 
   // Try before </html>
   const htmlCloseIndex = html.lastIndexOf('</html>');
   if (htmlCloseIndex !== -1) {
+    console.log('[injector] No </body> found, injecting before </html>');
     return html.slice(0, htmlCloseIndex) + WIDGET_SCRIPTS + html.slice(htmlCloseIndex);
   }
 
-  // Fallback: append to end
-  return html + WIDGET_SCRIPTS;
+  // Fallback: append to end with proper body tag
+  console.log('[injector] No proper HTML structure found, appending with body wrapper');
+  return html + `
+</body>
+${WIDGET_SCRIPTS}
+</html>`;
 }
 
 /**
