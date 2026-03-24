@@ -68,7 +68,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
         },
         body: (() => {
           const requestBody = {
-            model: process.env.AI_MODEL || 'claude-sonnet-4-6',
+            model: process.env.AI_MODEL || 'claude-3-5-sonnet-20241022',
             max_tokens: 8192,
             system: systemPrompt,
             messages: [{ role: 'user', content: userPrompt }]
@@ -179,9 +179,12 @@ function buildSiteDescription(data, url) {
   if (data.metaDescription) desc += `Description: ${data.metaDescription}\n`;
   if (data.fonts?.length) desc += `Fonts: ${data.fonts.join(', ')}\n`;
   if (data.colors?.length) {
+    console.log('[ai-gen] Raw colors:', JSON.stringify(data.colors.slice(0, 20)));
     const cleanColors = data.colors
-      .filter(c => c && c.match(/^#[0-9a-fA-F]{3,8}$|^rgb|^hsl/)) // only valid color values
+      .map(c => (c || '').trim())
+      .filter(c => /^#[0-9a-fA-F]{3,8}$/.test(c) || /^rgb/.test(c) || /^hsl/.test(c))
       .slice(0, 15);
+    console.log('[ai-gen] Clean colors:', JSON.stringify(cleanColors));
     if (cleanColors.length) desc += `Colors: ${cleanColors.join(', ')}\n`;
   }
   if (data.navigation?.length) desc += `Navigation: ${data.navigation.map(n => n.text).join(' | ')}\n`;
