@@ -66,13 +66,17 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
           'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          model: process.env.AI_MODEL || 'claude-sonnet-4-6-20250514',
-          max_tokens: 8192,
-          temperature: 0.2,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        })
+        body: (() => {
+          const requestBody = {
+            model: process.env.AI_MODEL || 'claude-sonnet-4-6',
+            max_tokens: 8192,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }]
+          };
+          console.log('[ai-gen] Request size:', JSON.stringify(requestBody).length, 'chars');
+          console.log('[ai-gen] User prompt preview:', userPrompt.slice(0, 500));
+          return JSON.stringify(requestBody);
+        })()
       });
 
       if (response.status === 529 || response.status === 500) {
@@ -189,6 +193,8 @@ function buildSiteDescription(data, url) {
   if (data.images?.length) {
     desc += 'Images (use these URLs):\n';
     for (const img of data.images.slice(0, 12)) {
+      // Skip base64 data URIs — they break the prompt and are useless as src
+      if (img.src?.startsWith('data:')) continue;
       desc += `  ${img.src}${img.alt ? ` (${img.alt})` : ''}\n`;
     }
     desc += '\n';
@@ -197,7 +203,10 @@ function buildSiteDescription(data, url) {
   if (data.sections?.length) {
     desc += 'Content sections:\n';
     for (let i = 0; i < Math.min(data.sections.length, 10); i++) {
-      desc += `  ${i + 1}. ${data.sections[i].textPreview.substring(0, 150)}\n`;
+      const cleanText = (data.sections[i].textPreview || '')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // strip control chars
+        .substring(0, 150);
+      desc += `  ${i + 1}. ${cleanText}\n`;
     }
   }
 
