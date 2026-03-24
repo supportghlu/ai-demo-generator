@@ -178,7 +178,12 @@ function buildSiteDescription(data, url) {
   let desc = `Website: ${url}\nTitle: ${data.title || 'Unknown'}\n`;
   if (data.metaDescription) desc += `Description: ${data.metaDescription}\n`;
   if (data.fonts?.length) desc += `Fonts: ${data.fonts.join(', ')}\n`;
-  if (data.colors?.length) desc += `Colors: ${data.colors.slice(0, 15).join(', ')}\n`;
+  if (data.colors?.length) {
+    const cleanColors = data.colors
+      .filter(c => c && c.match(/^#[0-9a-fA-F]{3,8}$|^rgb|^hsl/)) // only valid color values
+      .slice(0, 15);
+    if (cleanColors.length) desc += `Colors: ${cleanColors.join(', ')}\n`;
+  }
   if (data.navigation?.length) desc += `Navigation: ${data.navigation.map(n => n.text).join(' | ')}\n`;
   desc += '\n';
 
@@ -194,7 +199,12 @@ function buildSiteDescription(data, url) {
     console.log('[ai-gen] Images in prompt:', data.images?.slice(0, 12).map(i => i.src?.substring(0, 80)));
     desc += 'Images (use these URLs):\n';
     for (const img of data.images.slice(0, 12)) {
-      if (!img.src || img.src.startsWith('data:') || img.src.startsWith('blob:')) continue;
+      if (!img.src ||
+          img.src.startsWith('data:') ||
+          img.src.startsWith('blob:') ||
+          img.src.includes('facebook.com/tr') ||  // tracking pixels
+          img.src.includes('google-analytics') ||
+          !img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) continue; // must look like an image
       // Strip any characters outside printable ASCII
       const cleanSrc = img.src.replace(/[^\x20-\x7E]/g, '').trim();
       if (!cleanSrc) continue;
