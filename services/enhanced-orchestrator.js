@@ -7,7 +7,7 @@ import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
 import { analyzeIndustry } from './industry-analyzer.js';
 import { optimizeForConversion } from './conversion-optimizer.js';
-import { generateEnhancedWebsite } from './enhanced-generator.js';
+import { generateWebsite } from './ai-generator.js';
 import { injectWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
@@ -68,12 +68,7 @@ export async function processEnhancedDemo(leadData) {
 
     // Step 5: Generate Enhanced Website
     console.log('[enhanced-orchestrator] Step 5/8: Generating enhanced website...');
-    const generationResult = await generateEnhancedWebsite(
-      scrapeResult.data, 
-      analysis, 
-      optimization, 
-      leadData.websiteUrl
-    );
+    const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl);
     if (!generationResult.success) {
       throw new Error(`Enhanced website generation failed: ${generationResult.error}`);
     }
