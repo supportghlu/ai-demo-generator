@@ -66,17 +66,14 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
           'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json'
         },
-        body: (() => {
-          const requestBody = {
-            model: process.env.AI_MODEL || 'claude-3-5-sonnet-20241022',
-            max_tokens: 8192,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: userPrompt }]
-          };
-          console.log('[ai-gen] Request size:', JSON.stringify(requestBody).length, 'chars');
-          console.log('[ai-gen] User prompt preview:', userPrompt.slice(0, 500));
-          return JSON.stringify(requestBody);
-        })()
+<<<<<<< HEAD
+        body: JSON.stringify({
+          model: process.env.AI_MODEL || 'claude-3-haiku-20240307',
+          max_tokens: 4096,
+          temperature: 0.2,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }]
+        })
       });
 
       if (response.status === 529 || response.status === 500) {
