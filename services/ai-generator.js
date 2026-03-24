@@ -191,11 +191,14 @@ function buildSiteDescription(data, url) {
   }
 
   if (data.images?.length) {
+    console.log('[ai-gen] Images in prompt:', data.images?.slice(0, 12).map(i => i.src?.substring(0, 80)));
     desc += 'Images (use these URLs):\n';
     for (const img of data.images.slice(0, 12)) {
-      // Skip base64 data URIs — they break the prompt and are useless as src
-      if (img.src?.startsWith('data:')) continue;
-      desc += `  ${img.src}${img.alt ? ` (${img.alt})` : ''}\n`;
+      if (!img.src || img.src.startsWith('data:') || img.src.startsWith('blob:')) continue;
+      // Strip any characters outside printable ASCII
+      const cleanSrc = img.src.replace(/[^\x20-\x7E]/g, '').trim();
+      if (!cleanSrc) continue;
+      desc += `  ${cleanSrc}${img.alt ? ` (${img.alt.substring(0, 60)})` : ''}\n`;
     }
     desc += '\n';
   }
@@ -204,7 +207,7 @@ function buildSiteDescription(data, url) {
     desc += 'Content sections:\n';
     for (let i = 0; i < Math.min(data.sections.length, 10); i++) {
       const cleanText = (data.sections[i].textPreview || '')
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // strip control chars
+        .replace(/[^\x20-\x7E\n]/g, '') // keep only printable ASCII + newlines
         .substring(0, 150);
       desc += `  ${i + 1}. ${cleanText}\n`;
     }
