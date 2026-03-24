@@ -1,10 +1,8 @@
 /**
- * AI Website Generator — uses AI to generate a cloned website from scraped data
- * 
- * Two-pass approach to work within token limits:
- * Pass 1: Generate HTML structure with inline references
- * Pass 2: Generate CSS styling
- * JS is minimal and generated inline
+ * AI Website Generator — uses AI to generate an enhanced website from scraped data
+ *
+ * Single-file approach: one AI call generates a complete HTML file with embedded CSS and JS.
+ * Supports Anthropic Claude (primary) and OpenAI (fallback).
  */
 
 /**
@@ -69,8 +67,8 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: process.env.AI_MODEL || 'claude-3-haiku-20240307',
-          max_tokens: 4096,
+          model: process.env.AI_MODEL || 'claude-sonnet-4-6-20250514',
+          max_tokens: 8192,
           temperature: 0.2,
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }]
@@ -133,39 +131,42 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // --- System Prompts ---
 
-const SINGLE_FILE_SYSTEM = `You are an expert web designer creating a PREMIUM, CONVERSION-OPTIMIZED version of a business website that looks significantly more professional and sophisticated than the original.
+const SINGLE_FILE_SYSTEM = `You are an expert web designer and conversion strategist. Your job is to analyze a business, understand its industry, audience, and offerings, then build a custom-designed premium website tailored specifically to that business.
 
-MISSION: Transform their basic website into a stunning, high-converting experience that builds trust and drives action.
+APPROACH:
+1. First, study the website details provided — understand what industry they're in, who their customers are, what they sell/offer, and what makes them unique.
+2. Based on that analysis, decide the best page structure, layout style, color treatment, typography, and conversion strategy for THIS specific business. A law firm should look completely different from a bakery. A SaaS product page should feel nothing like a local plumber's site.
+3. Design a site that feels custom-built for them — not a generic template.
 
-VISUAL EXCELLENCE REQUIREMENTS:
-- Use their brand colors but in premium, sophisticated combinations with gradients and depth
-- Add professional hero images, icons, and visual elements
-- Create stunning visual hierarchy with modern typography
-- Include premium design elements: shadows, gradients, subtle animations
-- Make it look like a $15,000 custom website vs their current basic site
+BRAND ACCURACY (CRITICAL):
+- Preserve the exact business name, services, and offerings — never invent or add services they don't offer
+- Use their brand colors as the foundation, elevated into a more premium palette
+- Use the actual images provided from the scraped site — no placeholder or stock image URLs
+- Match the original tone of voice but make the copy more compelling
+- Preserve any contact details (phone, email, address) exactly as they appear
 
-CONVERSION OPTIMIZATION STRATEGY:
-- Compelling hero with benefit-driven headline + powerful CTA buttons
-- Immediate trust signals (reviews, guarantees, professional badges)
-- Clear value propositions explaining WHY customers should choose them
-- Social proof throughout (testimonials, customer count, trust badges)
-- Multiple strategic conversion points (hero, services, pricing, footer)
-- Professional service showcase focusing on BENEFITS not features
-- FAQ section addressing common objections
-- Strong final CTA section
+DESIGN DECISIONS YOU MUST MAKE (based on the business type):
+- Page structure and section order — choose what sections make sense for this business
+- Layout style — editorial, card-based, full-width immersive, split-screen, etc.
+- Typography pairing from Google Fonts that fits their brand personality
+- Color treatment — how to elevate their existing palette
+- What kind of social proof works best (reviews, case studies, client logos, stats, etc.)
+- What conversion strategy fits (booking, contact form CTA, phone call, free consultation, etc.)
+- What objections their specific customers likely have and how to address them
 
-TECHNICAL IMPLEMENTATION:
-- Complete HTML file with embedded <style> and <script> tags
-- Google Fonts for premium typography
-- Modern CSS Grid/Flexbox layouts
-- Responsive design that looks amazing on all devices
-- Smooth animations and hover effects
-- Professional color gradients and visual depth
-- Ensure proper </body> tag for widget injection
+QUALITY STANDARDS:
+- Must look like a $15,000 custom website, not a template
+- Premium design: depth, shadows, spacing, typography hierarchy, subtle animations
+- Mobile-first responsive design
+- Smooth interactions and hover effects
+- Every design choice should serve the business's specific goals
 
-QUALITY BENCHMARK: Should look dramatically better than their original - professional, trustworthy, and conversion-focused.
+TECHNICAL:
+- Single complete HTML file with embedded <style> and <script> tags
+- Semantic HTML5, CSS Grid/Flexbox, CSS custom properties
+- Ensure a proper </body> tag exists for widget injection
 
-OUTPUT: Complete HTML file only. No explanations.`;
+OUTPUT: Complete HTML file only. No explanations, no markdown fences.`;
 
 // --- Prompt Builders ---
 
@@ -204,25 +205,25 @@ function buildSiteDescription(data, url) {
 }
 
 function buildSingleFilePrompt(siteInfo, originalUrl) {
-  return `Create a DRAMATICALLY IMPROVED version of this website optimized for brand awareness and conversion:
+  return `Analyze this business and build a premium, custom-designed website tailored to their industry and audience:
 
 ORIGINAL WEBSITE: ${originalUrl}
 
 WEBSITE DETAILS:
 ${siteInfo}
 
-INSTRUCTIONS:
-Make this a more improved version of their site that is professional and clearly displays their service/product in a more sophisticated way, built for conversion and brand awareness.
+YOUR TASK:
+1. Identify the industry, target audience, and core offerings from the details above
+2. Decide the best page structure, layout style, and conversion strategy for THIS specific type of business
+3. Build a premium website that feels custom-made — not a generic template
 
-- Keep their brand colors but use them in premium, sophisticated combinations
-- Transform their content into benefit-focused, conversion-optimized copy
-- Add professional design elements: gradients, shadows, modern typography
-- Include trust signals, social proof, and multiple conversion touchpoints
-- Make it look like a $15,000 custom website vs their current basic site
-- Ensure mobile-first responsive design
-- Add smooth animations and professional interactions
+RULES:
+- Do NOT invent services, products, or offerings not listed above
+- Preserve all contact details (phone, email, address) exactly as they appear
+- Use the actual image URLs provided — no placeholders
+- Keep the same business name and branding identity
 
-OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No separate files.`;
+OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No markdown fences. No explanations.`;
 }
 
 
