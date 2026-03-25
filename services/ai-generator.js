@@ -32,9 +32,12 @@ export async function generateWebsite(scrapedData, originalUrl) {
     return { success: false, error: 'No AI API key configured (need ANTHROPIC_API_KEY or OPENAI_API_KEY)' };
   }
 
-  // Prefer OpenAI if we're using gpt model, otherwise use Anthropic
-  const useOpenAI = process.env.AI_MODEL?.startsWith('gpt') || !anthropicKey;
+  // Force OpenAI for GPT models since Anthropic Sonnet has access issues
+  const modelName = process.env.AI_MODEL || 'gpt-4o';
+  const useOpenAI = modelName.startsWith('gpt') || !anthropicKey;
   const provider = useOpenAI ? 'OpenAI' : 'Anthropic';
+  
+  console.log(`[ai-gen] Model: ${modelName}, Provider: ${provider}`);
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
 
   try {
