@@ -34,10 +34,11 @@ export async function generateWebsite(scrapedData, originalUrl) {
 
   // Force OpenAI for GPT models since Anthropic Sonnet has access issues
   const modelName = process.env.AI_MODEL || 'gpt-4o';
-  const useOpenAI = modelName.startsWith('gpt') || !anthropicKey;
-  const provider = useOpenAI ? 'OpenAI' : 'Anthropic';
+  // TEMP FIX: Force OpenAI until Anthropic Sonnet access is resolved
+  const useOpenAI = true;  // Force OpenAI for all requests
+  const provider = 'OpenAI';
   
-  console.log(`[ai-gen] Model: ${modelName}, Provider: ${provider}`);
+  console.log(`[ai-gen] Model: ${modelName}, Provider: ${provider}, AnthropicKey: ${anthropicKey ? 'present' : 'missing'}, OpenAIKey: ${openaiKey ? 'present' : 'missing'}`);
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
 
   try {
