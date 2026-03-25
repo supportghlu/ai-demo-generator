@@ -10,6 +10,7 @@ import { injectWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
 import { sendDemoSMS } from './sms.js';
+import { sendDemoEmail } from './email.js';
 
 /**
  * Process demo generation - simplified workflow
@@ -102,6 +103,20 @@ export async function processEnhancedDemo(leadData) {
         } catch (smsError) {
           console.error('[orchestrator] SMS error:', smsError);
           errors.push('SMS delivery error');
+        }
+        
+        // Send Email notification
+        try {
+          const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email);
+          if (emailResult.sent) {
+            console.log(`✅ Email sent: ${emailResult.message}`);
+          } else {
+            console.log(`⚠️ Email failed: ${emailResult.message}`);
+            errors.push('Email delivery failed');
+          }
+        } catch (emailError) {
+          console.error('[orchestrator] Email error:', emailError);
+          errors.push('Email delivery error');
         }
       }
     } catch (crmError) {
