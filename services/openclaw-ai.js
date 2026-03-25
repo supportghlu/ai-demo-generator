@@ -66,63 +66,67 @@ export async function generateWebsiteViaOpenClaw(scrapedData, originalUrl) {
 }
 
 async function callOpenClaw(promptFile, outputFile) {
-  return new Promise((resolve) => {
-    // Check if claude CLI is available
-    const child = spawn('claude', ['--model', 'sonnet', '--print'], {
-      stdio: 'pipe'
-    });
+  try {
+    // Read the prompt first
+    const prompt = await fs.readFile(promptFile, 'utf-8');
+    
+    return new Promise((resolve) => {
+      // Check if claude CLI is available
+      const child = spawn('claude', ['--model', 'sonnet', '--print'], {
+        stdio: 'pipe'
+      });
 
-    let output = '';
-    let error = '';
+      let output = '';
+      let error = '';
 
-    // Read the prompt and send to Claude
-    fs.readFile(promptFile, 'utf-8')
-      .then(prompt => {
-        child.stdin.write(prompt);
-        child.stdin.end();
-      })
-      .catch(err => {
-        console.error(`[openclaw-ai] Error reading prompt file: ${err.message}`);
-        child.kill();
+      // Send prompt to Claude
+      child.stdin.write(prompt);
+      child.stdin.end();
+
+      child.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        error += data.toString();
+        console.error(`[openclaw-err] ${data.toString().trim()}`);
+      });
+
+      child.on('close', async (code) => {
+        if (code === 0 && output.trim()) {
+          try {
+            // Write the output to the file
+            await fs.writeFile(outputFile, output.trim());
+            console.log(`[openclaw-ai] OpenClaw generation completed successfully`);
+            resolve(true);
+          } catch (writeErr) {
+            console.error(`[openclaw-ai] Error writing output file: ${writeErr.message}`);
+            resolve(false);
+          }
+        } else {
+          console.error(`[openclaw-ai] OpenClaw generation failed with code ${code}`);
+          console.error(`[openclaw-ai] Error: ${error}`);
+          console.error(`[openclaw-ai] Output: ${output.substring(0, 200)}`);
+          resolve(false);
+        }
+      });
+
+      child.on('error', (err) => {
+        console.error(`[openclaw-ai] Failed to start claude process: ${err.message}`);
         resolve(false);
       });
 
-    child.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      error += data.toString();
-      console.error(`[openclaw-err] ${data.toString().trim()}`);
-    });
-
-    child.on('close', (code) => {
-      if (code === 0 && output.trim()) {
-        // Write the output to the file
-        fs.writeFile(outputFile, output.trim())
-          .then(() => {
-            console.log(`[openclaw-ai] OpenClaw generation completed successfully`);
-            resolve(true);
-          })
-          .catch(err => {
-            console.error(`[openclaw-ai] Error writing output file: ${err.message}`);
-            resolve(false);
-          });
-      } else {
-        console.error(`[openclaw-ai] OpenClaw generation failed with code ${code}`);
-        console.error(`[openclaw-ai] Error: ${error}`);
-        console.error(`[openclaw-ai] Output: ${output.substring(0, 200)}`);
+      // Timeout after 120 seconds
+      setTimeout(() => {
+        child.kill();
+        console.error(`[openclaw-ai] OpenClaw generation timed out`);
         resolve(false);
-      }
+      }, 120000);
     });
-
-    // Timeout after 120 seconds
-    setTimeout(() => {
-      child.kill();
-      console.error(`[openclaw-ai] OpenClaw generation timed out`);
-      resolve(false);
-    }, 120000);
-  });
+  } catch (err) {
+    console.error(`[openclaw-ai] Error reading prompt file: ${err.message}`);
+    return false;
+  }
 }
 
 function buildSiteDescription(data, url) {
