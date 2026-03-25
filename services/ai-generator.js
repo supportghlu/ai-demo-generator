@@ -36,11 +36,33 @@ export async function generateWebsite(scrapedData, originalUrl) {
 
   // Force OpenAI for GPT models since Anthropic Sonnet has access issues
   const modelName = process.env.AI_MODEL || 'gpt-4o';
-  // TEMP FIX: Use OpenAI if available, otherwise fall back to Anthropic
-  const useOpenAI = openaiKey ? true : false;
+  
+  // CRITICAL FIX: Determine provider based on model name to avoid API mismatch
+  const isGPTModel = modelName.toLowerCase().includes('gpt');
+  const isClaudeModel = modelName.toLowerCase().includes('claude') || modelName.toLowerCase().includes('sonnet') || modelName.toLowerCase().includes('haiku');
+  
+  let useOpenAI, actualModel;
+  if (isGPTModel && openaiKey) {
+    useOpenAI = true;
+    actualModel = modelName;
+  } else if (isClaudeModel && anthropicKey) {
+    useOpenAI = false;
+    actualModel = modelName;
+  } else if (openaiKey) {
+    // Default to OpenAI GPT-4o if available
+    useOpenAI = true;
+    actualModel = 'gpt-4o';
+  } else if (anthropicKey) {
+    // Default to Anthropic Haiku if available
+    useOpenAI = false;
+    actualModel = 'claude-3-haiku-20240307';
+  } else {
+    return { success: false, error: 'No compatible AI API key available' };
+  }
+  
   const provider = useOpenAI ? 'OpenAI' : 'Anthropic';
   
-  console.log(`[ai-gen] Model: ${modelName}, Provider: ${provider}, AnthropicKey: ${anthropicKey ? 'present' : 'missing'}, OpenAIKey: ${openaiKey ? 'present' : 'missing'}`);
+  console.log(`[ai-gen] Model: ${actualModel}, Provider: ${provider}, AnthropicKey: ${anthropicKey ? 'present' : 'missing'}, OpenAIKey: ${openaiKey ? 'present' : 'missing'}`);
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
 
   try {
@@ -51,8 +73,8 @@ export async function generateWebsite(scrapedData, originalUrl) {
     const prompt = buildSingleFilePrompt(siteInfo, originalUrl);
     
     let html = useOpenAI
-      ? await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt)
-      : await callAnthropic(anthropicKey, SINGLE_FILE_SYSTEM, prompt);
+      ? await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, actualModel)
+      : await callAnthropic(anthropicKey, SINGLE_FILE_SYSTEM, prompt, actualModel);
     
     html = extractCodeBlock(html, 'html') || html;
     if (!html || html.length < 1000) {
@@ -77,7 +99,7 @@ export async function generateWebsite(scrapedData, originalUrl) {
 
 // --- API Callers with retry ---
 
-async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
+async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName = 'claude-3-haiku-20240307', retries = 2) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -88,7 +110,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: process.env.AI_MODEL || 'claude-3-5-sonnet-20241022',
+          model: modelName,
           max_tokens: 4096,
           temperature: 0.2,
           system: systemPrompt,
@@ -121,7 +143,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
   }
 }
 
-async function callOpenAI(apiKey, systemPrompt, userPrompt) {
+async function callOpenAI(apiKey, systemPrompt, userPrompt, modelName = 'gpt-4o') {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -129,7 +151,7 @@ async function callOpenAI(apiKey, systemPrompt, userPrompt) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: process.env.AI_MODEL || 'gpt-4o',
+      model: modelName,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
