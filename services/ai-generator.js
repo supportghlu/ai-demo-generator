@@ -36,22 +36,26 @@ export async function generateWebsite(scrapedData, originalUrl) {
 
   // Force OpenAI for GPT models since Anthropic Sonnet has access issues
   const modelName = process.env.AI_MODEL || 'gpt-4o';
+  console.log(`[ai-gen] Raw AI_MODEL from env: ${process.env.AI_MODEL}, final modelName: ${modelName}`);
   
   // CRITICAL FIX: Determine provider based on model name to avoid API mismatch
   const isGPTModel = modelName.toLowerCase().includes('gpt');
   const isClaudeModel = modelName.toLowerCase().includes('claude') || modelName.toLowerCase().includes('sonnet') || modelName.toLowerCase().includes('haiku');
   
   let useOpenAI, actualModel;
-  if (isGPTModel && openaiKey) {
+  
+  // CRITICAL FIX: Since Anthropic Sonnet access is broken, ALWAYS prefer OpenAI when available
+  if (openaiKey) {
+    useOpenAI = true;
+    // Use configured GPT model or default to GPT-4o  
+    actualModel = isGPTModel ? modelName : 'gpt-4o';
+    console.log(`[ai-gen] FORCING OpenAI usage due to Anthropic access issues`);
+  } else if (isGPTModel && openaiKey) {
     useOpenAI = true;
     actualModel = modelName;
   } else if (isClaudeModel && anthropicKey) {
     useOpenAI = false;
     actualModel = modelName;
-  } else if (openaiKey) {
-    // Default to OpenAI GPT-4o if available
-    useOpenAI = true;
-    actualModel = 'gpt-4o';
   } else if (anthropicKey) {
     // Default to Anthropic Haiku if available
     useOpenAI = false;
