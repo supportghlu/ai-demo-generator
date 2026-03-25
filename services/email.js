@@ -47,7 +47,7 @@ async function sendGHLEmail(contactId, subject, body) {
       type: 'Email',
       contactId,
       subject,
-      body
+      html: body
     })
   });
 

@@ -91,8 +91,39 @@ export async function upsertContactWithDemo({ name, email, phone, demoUrl }) {
   let contact = await findContactByEmail(email);
   
   if (!contact) {
-    const result = await createContact({ name, email, phone, source: 'AI Website Demo' });
-    contact = result.contact;
+    try {
+      const result = await createContact({ name, email, phone, source: 'AI Website Demo' });
+      contact = result.contact;
+    } catch (error) {
+      // Handle duplicate contact error - extract existing contact ID
+      if (error.message.includes('duplicated contacts') && error.message.includes('contactId')) {
+        try {
+          const errorText = error.message;
+          const match = errorText.match(/"contactId":"([^"]+)"/);
+          if (match) {
+            const existingContactId = match[1];
+            console.log(`[ghl] Using existing duplicate contact: ${existingContactId}`);
+            // Get the full contact object
+            contact = { id: existingContactId };
+            
+            // Try to get full contact details
+            try {
+              const fullContact = await ghlRequest('GET', `/contacts/${existingContactId}`);
+              contact = fullContact.contact || contact;
+            } catch (getError) {
+              console.log(`[ghl] Warning: Could not fetch full contact details: ${getError.message}`);
+            }
+          }
+        } catch (parseError) {
+          console.error(`[ghl] Could not parse duplicate contact error: ${parseError.message}`);
+        }
+      }
+      
+      if (!contact) {
+        console.error(`[ghl] Contact creation failed: ${error.message}`);
+        throw error;
+      }
+    }
   }
 
   if (contact?.id && demoUrl) {
