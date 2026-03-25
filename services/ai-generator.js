@@ -5,6 +5,8 @@
  * Supports Anthropic Claude (primary) and OpenAI (fallback).
  */
 
+import { generateWebsiteViaOpenClaw } from './openclaw-ai.js';
+
 /**
  * Generate website files from scraped data
  * @param {object} scrapedData - Output from scraper.js
@@ -12,6 +14,17 @@
  * @returns {Promise<{success: boolean, files?: object, error?: string}>}
  */
 export async function generateWebsite(scrapedData, originalUrl) {
+  // Try OpenClaw integration first (for Claude Sonnet access)
+  if (process.env.USE_OPENCLAW === 'true') {
+    console.log('[ai-gen] Using OpenClaw integration for Claude Sonnet...');
+    const openclawResult = await generateWebsiteViaOpenClaw(scrapedData, originalUrl);
+    if (openclawResult.success) {
+      return openclawResult;
+    }
+    console.log('[ai-gen] OpenClaw failed, falling back to direct API...');
+  }
+
+  // Fallback to direct API calls
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
@@ -19,7 +32,9 @@ export async function generateWebsite(scrapedData, originalUrl) {
     return { success: false, error: 'No AI API key configured (need ANTHROPIC_API_KEY or OPENAI_API_KEY)' };
   }
 
-  const provider = anthropicKey ? 'Anthropic' : 'OpenAI';
+  // Prefer OpenAI if we're using gpt model, otherwise use Anthropic
+  const useOpenAI = process.env.AI_MODEL?.startsWith('gpt') || !anthropicKey;
+  const provider = useOpenAI ? 'OpenAI' : 'Anthropic';
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
 
   try {
@@ -29,9 +44,9 @@ export async function generateWebsite(scrapedData, originalUrl) {
     console.log('[ai-gen] Generating complete enhanced HTML file...');
     const prompt = buildSingleFilePrompt(siteInfo, originalUrl);
     
-    let html = anthropicKey 
-      ? await callAnthropic(anthropicKey, SINGLE_FILE_SYSTEM, prompt)
-      : await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt);
+    let html = useOpenAI
+      ? await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt)
+      : await callAnthropic(anthropicKey, SINGLE_FILE_SYSTEM, prompt);
     
     html = extractCodeBlock(html, 'html') || html;
     if (!html || html.length < 1000) {
