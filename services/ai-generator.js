@@ -67,7 +67,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, retries = 2) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: process.env.AI_MODEL || 'claude-sonnet-4-6',
+          model: process.env.AI_MODEL || 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
           temperature: 0.2,
           system: systemPrompt,
