@@ -31,12 +31,14 @@ export async function generateWebsite(scrapedData, originalUrl) {
   if (!anthropicKey && !openaiKey) {
     return { success: false, error: 'No AI API key configured (need ANTHROPIC_API_KEY or OPENAI_API_KEY)' };
   }
+  
+  console.log(`[ai-gen] Available keys - Anthropic: ${anthropicKey ? 'YES' : 'NO'}, OpenAI: ${openaiKey ? 'YES' : 'NO'}`);
 
   // Force OpenAI for GPT models since Anthropic Sonnet has access issues
   const modelName = process.env.AI_MODEL || 'gpt-4o';
-  // TEMP FIX: Force OpenAI until Anthropic Sonnet access is resolved
-  const useOpenAI = true;  // Force OpenAI for all requests
-  const provider = 'OpenAI';
+  // TEMP FIX: Use OpenAI if available, otherwise fall back to Anthropic
+  const useOpenAI = openaiKey ? true : false;
+  const provider = useOpenAI ? 'OpenAI' : 'Anthropic';
   
   console.log(`[ai-gen] Model: ${modelName}, Provider: ${provider}, AnthropicKey: ${anthropicKey ? 'present' : 'missing'}, OpenAIKey: ${openaiKey ? 'present' : 'missing'}`);
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
@@ -139,7 +141,7 @@ async function callOpenAI(apiKey, systemPrompt, userPrompt) {
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`OpenAI API error: ${response.status}`);
+    throw new Error(`OpenAI API error: ${response.status} ${errText.substring(0, 200)}`);
   }
 
   const result = await response.json();
