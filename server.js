@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import webhookRouter from './routes/webhook.js';
 import statusRouter from './routes/status.js';
+import diagnosticRouter from './routes/diagnostic.js';
 import { startEnhancedProcessor, getProcessorStats } from './queue/enhanced-processor.js';
 import { getJobStats } from './db.js';
 
@@ -35,6 +36,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/webhook', webhookRouter);
 app.use('/status', statusRouter);
+app.use('/diagnostic', diagnosticRouter);
 
 // Serve demo sites — /demo/:slug/file serves static files
 app.get('/demo/:slug/*', (req, res) => {
