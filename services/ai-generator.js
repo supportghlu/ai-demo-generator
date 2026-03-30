@@ -52,66 +52,72 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
   console.log(`[ai-gen] Provider: ${provider}, Model: ${model}, Screenshot: ${screenshot ? 'yes' : 'no'}`);
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl}...`);
 
-  try {
-    const siteInfo = buildSiteDescription(scrapedData, originalUrl);
-    const prompt = buildSingleFilePrompt(siteInfo, originalUrl, !!screenshot);
+  const siteInfo = buildSiteDescription(scrapedData, originalUrl);
+  const prompt = buildSingleFilePrompt(siteInfo, originalUrl, !!screenshot);
 
-    // First pass: generate complete HTML
-    console.log('[ai-gen] Pass 1: Generating complete enhanced HTML...');
-    let html = useOpenAI
-      ? await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, model)
-      : await callAnthropic(anthropicKey, getSystemPrompt(!!screenshot), prompt, model, screenshot);
+  // Try Anthropic with multiple models before falling back to OpenAI
+  if (!useOpenAI) {
+    const claudeModels = [model, 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'];
+    // Deduplicate in case the default is already in the list
+    const modelsToTry = [...new Set(claudeModels)];
 
-    html = extractCodeBlock(html, 'html') || html;
-    if (!html || html.length < 1000) {
-      return { success: false, error: 'Failed to generate complete HTML file' };
-    }
-    console.log(`[ai-gen] Pass 1 complete: ${html.length} chars`);
-
-    // Refinement pass (optional)
-    if (process.env.ENABLE_REFINEMENT !== 'false' && !useOpenAI) {
+    for (const claudeModel of modelsToTry) {
       try {
-        console.log('[ai-gen] Pass 2: Refining generated HTML...');
-        const refinementPrompt = buildRefinementPrompt(html, siteInfo);
-        const refined = await callAnthropic(
-          anthropicKey, REFINEMENT_SYSTEM, refinementPrompt, model, screenshot
-        );
-        const refinedHtml = extractCodeBlock(refined, 'html') || refined;
-        if (refinedHtml && refinedHtml.length > html.length * 0.5) {
-          html = refinedHtml;
-          console.log(`[ai-gen] Pass 2 complete: ${html.length} chars`);
-        } else {
-          console.log('[ai-gen] Pass 2 output too short, keeping pass 1 result');
-        }
-      } catch (refineErr) {
-        console.warn(`[ai-gen] Refinement failed (using pass 1): ${refineErr.message}`);
-      }
-    }
-
-    console.log(`[ai-gen] Final HTML: ${html.length} chars`);
-    return { success: true, files: { html, css: '', js: '' } };
-  } catch (err) {
-    console.error(`[ai-gen] Generation failed:`, err);
-
-    // If Anthropic failed and we have an OpenAI key, try fallback
-    if (!useOpenAI && openaiKey) {
-      console.log('[ai-gen] Attempting OpenAI fallback...');
-      try {
-        const siteInfo = buildSiteDescription(scrapedData, originalUrl);
-        const prompt = buildSingleFilePrompt(siteInfo, originalUrl, false);
-        let html = await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, 'gpt-4o');
+        console.log(`[ai-gen] Pass 1: Trying ${claudeModel}...`);
+        let html = await callAnthropic(anthropicKey, getSystemPrompt(!!screenshot), prompt, claudeModel, screenshot);
         html = extractCodeBlock(html, 'html') || html;
-        if (html && html.length >= 1000) {
-          console.log(`[ai-gen] OpenAI fallback succeeded: ${html.length} chars`);
-          return { success: true, files: { html, css: '', js: '' } };
+        if (!html || html.length < 1000) {
+          console.log(`[ai-gen] ${claudeModel} output too short (${html?.length || 0} chars), trying next...`);
+          continue;
         }
-      } catch (fallbackErr) {
-        console.error(`[ai-gen] OpenAI fallback also failed:`, fallbackErr);
+        console.log(`[ai-gen] Pass 1 complete with ${claudeModel}: ${html.length} chars`);
+
+        // Refinement pass (optional)
+        if (process.env.ENABLE_REFINEMENT !== 'false') {
+          try {
+            console.log('[ai-gen] Pass 2: Refining generated HTML...');
+            const refinementPrompt = buildRefinementPrompt(html, siteInfo);
+            const refined = await callAnthropic(
+              anthropicKey, REFINEMENT_SYSTEM, refinementPrompt, claudeModel, screenshot
+            );
+            const refinedHtml = extractCodeBlock(refined, 'html') || refined;
+            if (refinedHtml && refinedHtml.length > html.length * 0.5) {
+              html = refinedHtml;
+              console.log(`[ai-gen] Pass 2 complete: ${html.length} chars`);
+            } else {
+              console.log('[ai-gen] Pass 2 output too short, keeping pass 1 result');
+            }
+          } catch (refineErr) {
+            console.warn(`[ai-gen] Refinement failed (using pass 1): ${refineErr.message}`);
+          }
+        }
+
+        console.log(`[ai-gen] Final HTML: ${html.length} chars`);
+        return { success: true, files: { html, css: '', js: '' } };
+      } catch (err) {
+        console.error(`[ai-gen] ${claudeModel} failed: ${err.message}`);
       }
     }
-
-    return { success: false, error: `AI generation failed: ${err.message}` };
+    console.log('[ai-gen] All Claude models failed');
   }
+
+  // OpenAI path (either primary or fallback)
+  if (openaiKey) {
+    try {
+      const oaiModel = useOpenAI ? model : 'gpt-4o';
+      console.log(`[ai-gen] ${useOpenAI ? 'Using' : 'Falling back to'} OpenAI ${oaiModel}...`);
+      let html = await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, oaiModel);
+      html = extractCodeBlock(html, 'html') || html;
+      if (html && html.length >= 1000) {
+        console.log(`[ai-gen] OpenAI succeeded: ${html.length} chars`);
+        return { success: true, files: { html, css: '', js: '' } };
+      }
+    } catch (fallbackErr) {
+      console.error(`[ai-gen] OpenAI also failed:`, fallbackErr);
+    }
+  }
+
+  return { success: false, error: 'All AI providers failed' };
 }
 
 // --- API Callers ---

@@ -94,4 +94,54 @@ router.get('/ghl-test', async (req, res) => {
   }
 });
 
+/**
+ * Quick Anthropic API Test — tests key validity and model access
+ */
+router.get('/anthropic-test', async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.json({ status: 'ERROR', message: 'ANTHROPIC_API_KEY not configured' });
+    }
+
+    const models = ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001', 'claude-3-5-sonnet-20241022'];
+    const results = [];
+
+    for (const model of models) {
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 50,
+            messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          results.push({ model, status: 'OK', output: data.content?.[0]?.text });
+        } else {
+          const errText = await response.text();
+          results.push({ model, status: `FAIL (${response.status})`, error: errText.substring(0, 200) });
+        }
+      } catch (err) {
+        results.push({ model, status: 'ERROR', error: err.message });
+      }
+    }
+
+    res.json({
+      status: results.some(r => r.status === 'OK') ? 'PARTIAL_SUCCESS' : 'ALL_FAILED',
+      keyPrefix: process.env.ANTHROPIC_API_KEY.substring(0, 12) + '...',
+      results
+    });
+  } catch (error) {
+    res.json({ status: 'ERROR', message: error.message });
+  }
+});
+
 export default router;
