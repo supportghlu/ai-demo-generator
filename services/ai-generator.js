@@ -166,7 +166,7 @@ async function _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, sc
 
       const maxTokens = modelName.includes('claude-3-haiku') ? 4096
         : modelName.includes('claude-3-5') || modelName.includes('claude-3-opus') ? 4096
-        : 8192;
+        : 16384; // claude-sonnet-4 supports up to 16384
 
       const requestBody = {
         model: modelName,
