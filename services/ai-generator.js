@@ -22,8 +22,10 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
   }
 
   // Provider selection: Anthropic primary, OpenAI fallback
+  const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-20250514';
   const configuredModel = process.env.AI_MODEL || '';
   const isGPTModel = configuredModel.toLowerCase().includes('gpt');
+  const isClaudeModel = configuredModel.toLowerCase().includes('claude');
 
   let useOpenAI, model;
 
@@ -32,9 +34,12 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
     useOpenAI = true;
     model = configuredModel;
   } else if (anthropicKey) {
-    // Default: Anthropic Claude
+    // Default: Anthropic Claude — only use AI_MODEL if it's a valid Claude model ID
     useOpenAI = false;
-    model = configuredModel || 'claude-sonnet-4-20250514';
+    model = (isClaudeModel && configuredModel.includes('-202')) ? configuredModel : DEFAULT_CLAUDE_MODEL;
+    if (configuredModel && model !== configuredModel) {
+      console.log(`[ai-gen] AI_MODEL "${configuredModel}" looks invalid, using ${model}`);
+    }
   } else if (openaiKey) {
     // Fallback: OpenAI
     useOpenAI = true;
@@ -152,7 +157,8 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName, screen
 
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`Anthropic API error: ${response.status} ${errText}`);
+        console.error(`[ai-gen] Anthropic ${response.status} response:`, errText.substring(0, 500));
+        throw new Error(`Anthropic API error: ${response.status} ${errText.substring(0, 300)}`);
       }
 
       const result = await response.json();
