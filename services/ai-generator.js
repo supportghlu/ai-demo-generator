@@ -375,7 +375,10 @@ function buildSiteDescription(data, url) {
       if (img.src.startsWith('data:') || img.src.startsWith('blob:')) return false;
       if (img.src.includes('facebook.com/tr') || img.src.includes('google-analytics')) return false;
       if (img.src.includes('pixel') || img.src.includes('tracking')) return false;
-      if (!img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) return false;
+      // Allow images with known extensions OR from known image hosting CDNs
+      const hasExtension = /\.(png|jpg|jpeg|gif|webp|svg|avif)/i.test(img.src);
+      const isImageCDN = /googleusercontent\.com|cloudinary\.com|imgur\.com|unsplash\.com|wp-content\/uploads|images\//i.test(img.src);
+      if (!hasExtension && !isImageCDN) return false;
       const clean = img.src.replace(/[^\x20-\x7E]/g, '').trim();
       if (!clean || seen.has(clean)) return false;
       seen.add(clean);

@@ -63,9 +63,18 @@ export async function deployDemo(slug, files) {
  * Find all external image URLs in HTML, download them, and rewrite src to local paths
  */
 async function downloadAndRewriteImages(html, imagesDir) {
-  // Match src="https://..." in img tags and CSS url()s
-  const imgRegex = /(?:src|srcset)=["'](https?:\/\/[^"'\s]+\.(?:png|jpg|jpeg|gif|webp|svg|avif)(?:\?[^"'\s]*)?)["']/gi;
-  const matches = [...html.matchAll(imgRegex)];
+  // Match src="https://..." in img tags — both extension-based and CDN-hosted images
+  const imgRegex = /(?:src|srcset)=["'](https?:\/\/[^"'\s]+?)["']/gi;
+  const allMatches = [...html.matchAll(imgRegex)];
+  // Filter to likely images: has image extension OR is from known image CDN
+  const matches = allMatches.filter(m => {
+    const url = m[1];
+    const hasExt = /\.(png|jpg|jpeg|gif|webp|svg|avif)/i.test(url);
+    const isCDN = /googleusercontent\.com|cloudinary\.com|imgur\.com|unsplash\.com|wp-content\/uploads/i.test(url);
+    // Exclude scripts, stylesheets, etc.
+    const isNotImage = /\.(js|css|woff|woff2|ttf|eot|json|xml)(\?|$)/i.test(url);
+    return (hasExt || isCDN) && !isNotImage;
+  });
 
   if (matches.length === 0) {
     console.log('[deployer] No external images to download');
