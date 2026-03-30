@@ -57,8 +57,14 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
 
   // Try Anthropic with multiple models before falling back to OpenAI
   if (!useOpenAI) {
-    const claudeModels = [model, 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'];
-    // Deduplicate in case the default is already in the list
+    const claudeModels = [
+      model,
+      'claude-sonnet-4-20250514',
+      'claude-3-7-sonnet-20250219',
+      'claude-3-5-sonnet-20240620',
+      'claude-3-haiku-20240307'
+    ];
+    // Deduplicate
     const modelsToTry = [...new Set(claudeModels)];
 
     for (const claudeModel of modelsToTry) {
@@ -158,9 +164,14 @@ async function _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, sc
         content = userPrompt;
       }
 
+      // Set max_tokens based on model capability
+      const maxTokens = modelName.includes('claude-3-haiku') ? 4096
+        : modelName.includes('claude-3-5') || modelName.includes('claude-3-opus') ? 4096
+        : 8192; // claude-3-7, claude-sonnet-4, claude-4
+
       const requestBody = {
         model: modelName,
-        max_tokens: 8192,
+        max_tokens: maxTokens,
         temperature: 0.2,
         system: systemPrompt,
         messages: [{ role: 'user', content }]
