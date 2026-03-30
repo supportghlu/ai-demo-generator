@@ -61,8 +61,7 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
       model,
       'claude-sonnet-4-20250514',
       'claude-3-7-sonnet-20250219',
-      'claude-3-5-sonnet-20240620',
-      'claude-3-haiku-20240307'
+      'claude-3-5-sonnet-20240620'
     ];
     // Deduplicate
     const modelsToTry = [...new Set(claudeModels)];

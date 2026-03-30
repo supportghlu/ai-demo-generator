@@ -144,4 +144,205 @@ router.get('/anthropic-test', async (req, res) => {
   }
 });
 
+/**
+ * API Docs — interactive browser UI for all endpoints
+ */
+router.get('/docs', (req, res) => {
+  const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+
+  res.send(`<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Demo Generator — API Docs</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e4e4e7; line-height: 1.6; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+  h1 span { color: #818cf8; }
+  .subtitle { color: #71717a; margin-bottom: 2rem; }
+  h2 { font-size: 1.2rem; color: #a1a1aa; margin: 2rem 0 1rem; border-bottom: 1px solid #27272a; padding-bottom: 0.5rem; }
+  .endpoint { background: #18181b; border: 1px solid #27272a; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; cursor: pointer; }
+  .endpoint-header:hover { background: #1f1f23; }
+  .method { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace; }
+  .get { background: #064e3b; color: #6ee7b7; }
+  .post { background: #1e3a5f; color: #93c5fd; }
+  .path { font-family: monospace; font-size: 0.9rem; color: #e4e4e7; }
+  .desc { color: #71717a; font-size: 0.85rem; margin-left: auto; }
+  .endpoint-body { padding: 0 1.25rem 1.25rem; display: none; border-top: 1px solid #27272a; }
+  .endpoint.open .endpoint-body { display: block; padding-top: 1rem; }
+  .try-btn { background: #4f46e5; color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; margin-top: 0.75rem; }
+  .try-btn:hover { background: #4338ca; }
+  .try-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result { margin-top: 1rem; background: #09090b; border: 1px solid #27272a; border-radius: 6px; padding: 1rem; font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; max-height: 400px; overflow-y: auto; display: none; }
+  .result.show { display: block; }
+  .input-group { margin-top: 0.75rem; }
+  .input-group label { display: block; font-size: 0.8rem; color: #a1a1aa; margin-bottom: 0.25rem; }
+  .input-group input, .input-group textarea { width: 100%; background: #09090b; border: 1px solid #27272a; color: #e4e4e7; padding: 0.5rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+  .input-group textarea { min-height: 100px; resize: vertical; }
+  .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .status-ok { background: #064e3b; color: #6ee7b7; }
+  .status-fail { background: #450a0a; color: #fca5a5; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #4f46e5; border-top: 2px solid transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head><body>
+<div class="container">
+  <h1>AI Demo Generator <span>API</span></h1>
+  <p class="subtitle">Base URL: <code>${baseUrl}</code></p>
+
+  <h2>Diagnostics</h2>
+
+  <div class="endpoint" id="ep-env">
+    <div class="endpoint-header" onclick="toggle('ep-env')">
+      <span class="method get">GET</span>
+      <span class="path">/diagnostic/env-check</span>
+      <span class="desc">Check environment configuration</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Shows which API keys and config vars are set (masked).</p>
+      <button class="try-btn" onclick="tryGet('/diagnostic/env-check', 'ep-env')">Run</button>
+      <pre class="result" id="result-ep-env"></pre>
+    </div>
+  </div>
+
+  <div class="endpoint" id="ep-anthropic">
+    <div class="endpoint-header" onclick="toggle('ep-anthropic')">
+      <span class="method get">GET</span>
+      <span class="path">/diagnostic/anthropic-test</span>
+      <span class="desc">Test Anthropic API key against multiple models</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Sends a minimal request to each Claude model to check access. Takes ~10s.</p>
+      <button class="try-btn" onclick="tryGet('/diagnostic/anthropic-test', 'ep-anthropic')">Run Test</button>
+      <pre class="result" id="result-ep-anthropic"></pre>
+    </div>
+  </div>
+
+  <div class="endpoint" id="ep-ghl">
+    <div class="endpoint-header" onclick="toggle('ep-ghl')">
+      <span class="method get">GET</span>
+      <span class="path">/diagnostic/ghl-test</span>
+      <span class="desc">Test GoHighLevel API connection</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Verifies GHL API key and location ID.</p>
+      <button class="try-btn" onclick="tryGet('/diagnostic/ghl-test', 'ep-ghl')">Run Test</button>
+      <pre class="result" id="result-ep-ghl"></pre>
+    </div>
+  </div>
+
+  <h2>Core API</h2>
+
+  <div class="endpoint" id="ep-webhook">
+    <div class="endpoint-header" onclick="toggle('ep-webhook')">
+      <span class="method post">POST</span>
+      <span class="path">/webhook/demo-request</span>
+      <span class="desc">Submit a new demo generation job</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Creates a demo generation job. Returns a job ID for status tracking.</p>
+      <div class="input-group">
+        <label>Request Body (JSON)</label>
+        <textarea id="webhook-body">{
+  "name": "Test User",
+  "email": "test@example.com",
+  "phone": "+44123456789",
+  "website_url": "https://example.com",
+  "company_name": "Test Company"
+}</textarea>
+      </div>
+      <button class="try-btn" onclick="tryPost('/webhook/demo-request', 'ep-webhook', 'webhook-body')">Submit Job</button>
+      <pre class="result" id="result-ep-webhook"></pre>
+    </div>
+  </div>
+
+  <div class="endpoint" id="ep-status">
+    <div class="endpoint-header" onclick="toggle('ep-status')">
+      <span class="method get">GET</span>
+      <span class="path">/status/:jobId</span>
+      <span class="desc">Check job status</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns job status, demo URL, and execution logs.</p>
+      <div class="input-group">
+        <label>Job ID</label>
+        <input type="text" id="status-jobid" placeholder="e.g. 4ee9a51a-bd41-44e9-bd36-115a40849c80">
+      </div>
+      <button class="try-btn" onclick="tryGetDynamic('/status/', 'ep-status', 'status-jobid')">Check Status</button>
+      <pre class="result" id="result-ep-status"></pre>
+    </div>
+  </div>
+
+  <div class="endpoint" id="ep-health">
+    <div class="endpoint-header" onclick="toggle('ep-health')">
+      <span class="method get">GET</span>
+      <span class="path">/health</span>
+      <span class="desc">Health check and job stats</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns service status, uptime, and job queue stats.</p>
+      <button class="try-btn" onclick="tryGet('/health', 'ep-health')">Check Health</button>
+      <pre class="result" id="result-ep-health"></pre>
+    </div>
+  </div>
+
+  <div class="endpoint" id="ep-dashboard">
+    <div class="endpoint-header" onclick="toggle('ep-dashboard')">
+      <span class="method get">GET</span>
+      <span class="path">/dashboard</span>
+      <span class="desc">Visual job monitoring dashboard</span>
+    </div>
+    <div class="endpoint-body">
+      <p>HTML dashboard with real-time job stats.</p>
+      <a href="/dashboard" target="_blank" class="try-btn" style="display:inline-block;text-decoration:none;">Open Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggle(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+async function tryGet(path, epId) {
+  const el = document.getElementById('result-' + epId);
+  el.className = 'result show';
+  el.innerHTML = '<span class="spinner"></span> Loading...';
+  try {
+    const res = await fetch(path);
+    const data = await res.json();
+    el.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function tryGetDynamic(basePath, epId, inputId) {
+  const val = document.getElementById(inputId).value.trim();
+  if (!val) { alert('Please enter a value'); return; }
+  await tryGet(basePath + val, epId);
+}
+
+async function tryPost(path, epId, bodyId) {
+  const el = document.getElementById('result-' + epId);
+  el.className = 'result show';
+  el.innerHTML = '<span class="spinner"></span> Submitting...';
+  try {
+    const body = document.getElementById(bodyId).value;
+    JSON.parse(body); // validate
+    const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const data = await res.json();
+    el.textContent = JSON.stringify(data, null, 2);
+  } catch (e) {
+    el.textContent = 'Error: ' + e.message;
+  }
+}
+</script>
+</body></html>`);
+});
+
 export default router;
