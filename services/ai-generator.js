@@ -30,18 +30,15 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
   let useOpenAI, model;
 
   if (isGPTModel && openaiKey) {
-    // User explicitly configured a GPT model
     useOpenAI = true;
     model = configuredModel;
   } else if (anthropicKey) {
-    // Default: Anthropic Claude — only use AI_MODEL if it's a valid Claude model ID
     useOpenAI = false;
     model = (isClaudeModel && configuredModel.includes('-202')) ? configuredModel : DEFAULT_CLAUDE_MODEL;
     if (configuredModel && model !== configuredModel) {
       console.log(`[ai-gen] AI_MODEL "${configuredModel}" looks invalid, using ${model}`);
     }
   } else if (openaiKey) {
-    // Fallback: OpenAI
     useOpenAI = true;
     model = configuredModel || 'gpt-4o';
   } else {
@@ -55,48 +52,47 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
   const siteInfo = buildSiteDescription(scrapedData, originalUrl);
   const prompt = buildSingleFilePrompt(siteInfo, originalUrl, !!screenshot);
 
-  // Try Anthropic with multiple models before falling back to OpenAI
+  // Try Anthropic
   if (!useOpenAI) {
-    const modelsToTry = [model];
-
-    for (const claudeModel of modelsToTry) {
-      try {
-        console.log(`[ai-gen] Pass 1: Trying ${claudeModel}...`);
-        let html = await callAnthropic(anthropicKey, getSystemPrompt(!!screenshot), prompt, claudeModel, screenshot);
-        html = extractCodeBlock(html, 'html') || html;
-        if (!html || html.length < 1000) {
-          console.log(`[ai-gen] ${claudeModel} output too short (${html?.length || 0} chars), trying next...`);
-          continue;
-        }
-        console.log(`[ai-gen] Pass 1 complete with ${claudeModel}: ${html.length} chars`);
-
-        // Refinement pass (optional)
-        if (process.env.ENABLE_REFINEMENT !== 'false') {
-          try {
-            console.log('[ai-gen] Pass 2: Refining generated HTML...');
-            const refinementPrompt = buildRefinementPrompt(html, siteInfo);
-            const refined = await callAnthropic(
-              anthropicKey, REFINEMENT_SYSTEM, refinementPrompt, claudeModel, screenshot
-            );
-            const refinedHtml = extractCodeBlock(refined, 'html') || refined;
-            if (refinedHtml && refinedHtml.length > html.length * 0.5) {
-              html = refinedHtml;
-              console.log(`[ai-gen] Pass 2 complete: ${html.length} chars`);
-            } else {
-              console.log('[ai-gen] Pass 2 output too short, keeping pass 1 result');
-            }
-          } catch (refineErr) {
-            console.warn(`[ai-gen] Refinement failed (using pass 1): ${refineErr.message}`);
-          }
-        }
-
-        console.log(`[ai-gen] Final HTML: ${html.length} chars`);
-        return { success: true, files: { html, css: '', js: '' } };
-      } catch (err) {
-        console.error(`[ai-gen] ${claudeModel} failed: ${err.message}`);
+    try {
+      console.log(`[ai-gen] Pass 1: Generating with ${model}...`);
+      let html = await callAnthropic(anthropicKey, getSystemPrompt(!!screenshot), prompt, model, screenshot);
+      html = extractCodeBlock(html, 'html') || html;
+      if (!html || html.length < 1000) {
+        console.log(`[ai-gen] ${model} output too short (${html?.length || 0} chars)`);
+        throw new Error('Output too short');
       }
+      console.log(`[ai-gen] Pass 1 complete: ${html.length} chars`);
+
+      // Ensure proper closing tags for widget injection
+      html = ensureClosingTags(html);
+
+      // Refinement pass (optional)
+      if (process.env.ENABLE_REFINEMENT !== 'false') {
+        try {
+          console.log('[ai-gen] Pass 2: Refining generated HTML...');
+          const refinementPrompt = buildRefinementPrompt(html, siteInfo);
+          const refined = await callAnthropic(
+            anthropicKey, REFINEMENT_SYSTEM, refinementPrompt, model, screenshot
+          );
+          const refinedHtml = extractCodeBlock(refined, 'html') || refined;
+          if (refinedHtml && refinedHtml.length > html.length * 0.5) {
+            html = ensureClosingTags(refinedHtml);
+            console.log(`[ai-gen] Pass 2 complete: ${html.length} chars`);
+          } else {
+            console.log('[ai-gen] Pass 2 output too short, keeping pass 1 result');
+          }
+        } catch (refineErr) {
+          console.warn(`[ai-gen] Refinement failed (using pass 1): ${refineErr.message}`);
+        }
+      }
+
+      console.log(`[ai-gen] Final HTML: ${html.length} chars`);
+      return { success: true, files: { html, css: '', js: '' } };
+    } catch (err) {
+      console.error(`[ai-gen] ${model} failed: ${err.message}`);
     }
-    console.log('[ai-gen] All Claude models failed');
+    console.log('[ai-gen] Claude generation failed');
   }
 
   // OpenAI path (either primary or fallback)
@@ -107,6 +103,7 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
       let html = await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, oaiModel);
       html = extractCodeBlock(html, 'html') || html;
       if (html && html.length >= 1000) {
+        html = ensureClosingTags(html);
         console.log(`[ai-gen] OpenAI succeeded: ${html.length} chars`);
         return { success: true, files: { html, css: '', js: '' } };
       }
@@ -116,6 +113,18 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
   }
 
   return { success: false, error: 'All AI providers failed' };
+}
+
+// --- Ensure closing tags for widget injection ---
+
+function ensureClosingTags(html) {
+  if (!html.includes('</body>')) {
+    console.log('[ai-gen] Missing </body> tag, appending closing tags');
+    html += '\n</body>\n</html>';
+  } else if (!html.includes('</html>')) {
+    html += '\n</html>';
+  }
+  return html;
 }
 
 // --- API Callers ---
@@ -142,7 +151,6 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName, screen
 async function _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, screenshot, retries) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      // Build message content — multimodal if screenshot provided
       let content;
       if (screenshot) {
         content = [
@@ -156,10 +164,9 @@ async function _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, sc
         content = userPrompt;
       }
 
-      // Set max_tokens based on model capability
       const maxTokens = modelName.includes('claude-3-haiku') ? 4096
         : modelName.includes('claude-3-5') || modelName.includes('claude-3-opus') ? 4096
-        : 8192; // claude-3-7, claude-sonnet-4, claude-4
+        : 8192;
 
       const requestBody = {
         model: modelName,
@@ -169,7 +176,6 @@ async function _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, sc
         messages: [{ role: 'user', content }]
       };
 
-      // Log request structure for debugging (no actual content)
       console.log(`[ai-gen] Anthropic request: model=${modelName}, max_tokens=${requestBody.max_tokens}, ` +
         `content_type=${screenshot ? 'image+text' : 'text'}, ` +
         `system_length=${systemPrompt.length}, prompt_length=${userPrompt.length}` +
@@ -254,78 +260,73 @@ You are provided with a screenshot of the original website. Study it carefully t
 - Section ordering and content hierarchy
 - Typography scale and spacing
 - The general aesthetic and brand feel
-Use the screenshot as your primary design reference.`;
+Use the screenshot as your primary design reference. Replicate the layout closely.`;
   }
   return prompt;
 }
 
-const SINGLE_FILE_SYSTEM = `You are an expert web designer and conversion strategist. Your job is to analyze a business, understand its industry, audience, and offerings, then build a custom-designed premium website tailored specifically to that business.
+const SINGLE_FILE_SYSTEM = `You are an expert web designer rebuilding an existing business website into a premium version. You are NOT creating a new site from scratch — you are enhancing an EXISTING site whose content has been scraped and provided to you.
 
-APPROACH:
-1. First, study the website details provided — understand what industry they're in, who their customers are, what they sell/offer, and what makes them unique.
-2. Based on that analysis, decide the best page structure, layout style, color treatment, typography, and conversion strategy for THIS specific business. A law firm should look completely different from a bakery. A SaaS product page should feel nothing like a local plumber's site.
-3. Design a site that feels custom-built for them — not a generic template.
+CRITICAL RULES — READ THESE FIRST:
+1. USE THE ACTUAL CONTENT PROVIDED. Every heading, paragraph, service description, and detail from the scraped content MUST appear in your output. Do not summarize, replace, or paraphrase — use the real text.
+2. USE THE ACTUAL IMAGE URLs PROVIDED. Every image URL listed must be used in an <img> tag. NEVER use placeholder images, gradient backgrounds as image substitutes, or stock photo URLs. If 20 images are provided, use all 20.
+3. USE THE ACTUAL CONTACT DETAILS. Address, phone, email, booking links — copy them exactly from the scraped content.
+4. DO NOT INVENT CONTENT. Never add services, testimonials, team members, statistics, or any content not found in the scraped data. If the original site has 4 services, your output has 4 services — not 6.
 
-BRAND ACCURACY (CRITICAL):
-- Preserve the exact business name, services, and offerings — never invent or add services they don't offer
-- Use their brand colors as the foundation, elevated into a more premium palette
-- Use the actual images provided from the scraped site — no placeholder or stock image URLs
-- Match the original tone of voice but make the copy more compelling
-- Preserve any contact details (phone, email, address) exactly as they appear
-
-DESIGN DECISIONS YOU MUST MAKE (based on the business type):
-- Page structure and section order — choose what sections make sense for this business
-- Layout style — editorial, card-based, full-width immersive, split-screen, etc.
-- Typography pairing from Google Fonts that fits their brand personality
-- Color treatment — how to elevate their existing palette
-- What kind of social proof works best (reviews, case studies, client logos, stats, etc.)
-- What conversion strategy fits (booking, contact form CTA, phone call, free consultation, etc.)
-- What objections their specific customers likely have and how to address them
+WHAT YOU SHOULD DO:
+- Reorganize the scraped content into a clean, premium layout
+- Improve the visual design: better typography, spacing, shadows, animations
+- Make the copy more compelling while keeping the same meaning and details
+- Add proper responsive design (mobile breakpoints)
+- Structure sections logically: hero, about, services, gallery, testimonials, contact, footer
+- Use their brand colors elevated into a premium palette
+- Add Google Fonts, smooth scrolling, hover effects, scroll-triggered animations
 
 QUALITY STANDARDS:
-- Must look like a $15,000 custom website, not a template
-- Premium design: depth, shadows, spacing, typography hierarchy, subtle animations
-- Mobile-first responsive design
-- Smooth interactions and hover effects
-- Every design choice should serve the business's specific goals
-- The generated HTML must be substantial and complete — at least 8000 characters
-- Include at least 5 distinct, well-designed page sections
+- Must look like a premium custom website
+- Every section must have real content — NO empty sections, NO "coming soon", NO placeholder text
+- All images must render (use the actual URLs from the scraped data)
+- The gallery/portfolio section must use real images from the scraped data
+- Contact section must include the real address, phone, and/or email from the scraped data
+- Navigation must link to actual sections via anchor IDs
 
-TECHNICAL:
+TECHNICAL REQUIREMENTS:
 - Single complete HTML file with embedded <style> and <script> tags
 - Semantic HTML5, CSS Grid/Flexbox, CSS custom properties
-- Google Fonts loaded via <link> tag in the <head>
-- Smooth scroll behavior, scroll-triggered animations via IntersectionObserver
-- MUST end with proper </body></html> tags (required for widget injection)
+- Google Fonts loaded via <link> in <head>
+- IntersectionObserver for scroll animations
+- Mobile-responsive with at least 2 breakpoints (768px, 480px)
+- MUST include proper </body></html> closing tags at the very end
 
-OUTPUT: Complete HTML file only. No explanations, no markdown fences.`;
+OUTPUT: Complete HTML file only. No explanations, no markdown fences, no commentary.`;
 
-const REFINEMENT_SYSTEM = `You are a senior web designer reviewing and improving a generated website. You will receive the generated HTML code and details about the original website.
+const REFINEMENT_SYSTEM = `You are a senior web designer doing a final quality review on a generated website. You have the original site details and must ensure accuracy.
 
-Your job is to improve the HTML by:
-1. Ensuring the layout and visual hierarchy match what a premium site in this industry should look like
-2. Filling in any sections that feel incomplete or placeholder-like
-3. Improving responsive design (check media queries for mobile/tablet)
-4. Enhancing visual polish — shadows, gradients, spacing, micro-animations
-5. Ensuring all content from the original site is accurately represented
-6. Making sure the HTML ends with proper </body></html> tags
-7. Verifying all image URLs from the original site are used (not placeholders)
+CHECK AND FIX:
+1. IMAGES — Are all the provided image URLs actually used in <img> tags? Replace any gradient placeholders or missing images with the real URLs from the site details.
+2. CONTENT — Does every section have real, specific content from the original site? Replace any generic/placeholder text with the actual scraped content.
+3. CONTACT INFO — Is the real address, phone, email visible? Add it if missing.
+4. SERVICES — Do the services match exactly what the original site offers? Remove any invented ones, add any missing ones.
+5. CLOSING TAGS — Does the HTML end with </body></html>?
+6. RESPONSIVE — Are there media queries for mobile?
+7. VISUAL POLISH — Add subtle improvements: better shadows, transitions, hover effects.
 
-Do NOT remove any sections. Only improve and enhance. The output must be a COMPLETE HTML file — do not output partial snippets.
+Do NOT remove any sections. Do NOT add invented content. Fix what's wrong, enhance what's there.
 
 OUTPUT: Complete improved HTML file only. No explanations, no markdown fences.`;
 
 // --- Prompt Builders ---
 
 function buildSiteDescription(data, url) {
-  let desc = `Website: ${url}\nTitle: ${data.title || 'Unknown'}\n`;
-  if (data.metaDescription) desc += `Description: ${data.metaDescription}\n`;
+  let desc = `WEBSITE URL: ${url}\n`;
+  desc += `BUSINESS NAME: ${data.title || 'Unknown'}\n`;
+  if (data.metaDescription) desc += `DESCRIPTION: ${data.metaDescription}\n`;
 
-  // Fonts — combine extracted and computed
+  // Fonts
   const allFonts = new Set([...(data.fonts || []), ...(data.computedFonts || [])]);
-  if (allFonts.size) desc += `Fonts: ${[...allFonts].join(', ')}\n`;
+  if (allFonts.size) desc += `FONTS: ${[...allFonts].join(', ')}\n`;
 
-  // Colors — combine extracted and computed
+  // Colors
   if (data.colors?.length || data.computedColors?.length) {
     const rawColors = data.colors || [];
     const cleanColors = rawColors
@@ -335,12 +336,12 @@ function buildSiteDescription(data, url) {
     const computedColors = (data.computedColors || []).slice(0, 10);
     const bgColors = (data.computedBgColors || []).slice(0, 10);
     const allColors = [...new Set([...cleanColors, ...computedColors, ...bgColors])];
-    if (allColors.length) desc += `Colors: ${allColors.join(', ')}\n`;
+    if (allColors.length) desc += `BRAND COLORS: ${allColors.join(', ')}\n`;
   }
 
-  // Computed styles summary
+  // Computed styles
   if (data.computedStyles) {
-    desc += '\nComputed Styles (from rendered page):\n';
+    desc += '\nRENDERED STYLES:\n';
     for (const [element, styles] of Object.entries(data.computedStyles)) {
       if (styles) {
         desc += `  ${element}: font=${styles.fontFamily?.split(',')[0]?.trim()}, color=${styles.color}, bg=${styles.backgroundColor}\n`;
@@ -348,111 +349,128 @@ function buildSiteDescription(data, url) {
     }
   }
 
-  if (data.navigation?.length) desc += `\nNavigation: ${data.navigation.map(n => n.text).join(' | ')}\n`;
+  // Navigation
+  if (data.navigation?.length) {
+    desc += `\nNAVIGATION MENU: ${data.navigation.map(n => `${n.text}${n.href ? ` (${n.href})` : ''}`).join(' | ')}\n`;
+  }
 
   // CTA buttons
   if (data.ctaButtons?.length) {
-    desc += `\nCall-to-Action buttons: ${data.ctaButtons.join(' | ')}\n`;
+    desc += `CTA BUTTONS: ${data.ctaButtons.join(' | ')}\n`;
   }
 
-  desc += '\n';
-
-  // Headings (increased limit)
+  // Headings — ALL of them
   if (data.headings?.length) {
-    desc += 'Headings:\n';
-    for (const h of data.headings.slice(0, 40)) {
+    desc += '\nALL HEADINGS FROM THE SITE (use these exact headings):\n';
+    for (const h of data.headings.slice(0, 50)) {
       desc += `  ${h.level}: ${h.text}\n`;
     }
-    desc += '\n';
   }
 
-  // Images (increased limit)
+  // Images — ALL of them with emphasis
   if (data.images?.length) {
-    desc += 'Images (use these URLs):\n';
-    for (const img of data.images.slice(0, 30)) {
-      if (!img.src ||
-          img.src.startsWith('data:') ||
-          img.src.startsWith('blob:') ||
-          img.src.includes('facebook.com/tr') ||
-          img.src.includes('google-analytics') ||
-          !img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) continue;
-      const cleanSrc = img.src.replace(/[^\x20-\x7E]/g, '').trim();
-      if (!cleanSrc) continue;
-      desc += `  ${cleanSrc}${img.alt ? ` (${img.alt.substring(0, 60)})` : ''}\n`;
+    const validImages = data.images.filter(img => {
+      if (!img.src) return false;
+      if (img.src.startsWith('data:') || img.src.startsWith('blob:')) return false;
+      if (img.src.includes('facebook.com/tr') || img.src.includes('google-analytics')) return false;
+      if (!img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) return false;
+      return true;
+    }).map(img => ({
+      src: img.src.replace(/[^\x20-\x7E]/g, '').trim(),
+      alt: img.alt || ''
+    })).filter(img => img.src);
+
+    if (validImages.length) {
+      desc += `\n*** IMAGES — YOU MUST USE ALL OF THESE (${validImages.length} total) ***\n`;
+      desc += `Do NOT use placeholder images. Do NOT use gradient boxes. Use these EXACT URLs:\n`;
+      for (let i = 0; i < validImages.length; i++) {
+        desc += `  ${i + 1}. ${validImages[i].src}${validImages[i].alt ? ` (${validImages[i].alt.substring(0, 80)})` : ''}\n`;
+      }
     }
-    desc += '\n';
   }
 
-  // Content sections (increased limits)
+  // Content sections — FULL text, not truncated
   if (data.sections?.length) {
-    desc += 'Content sections:\n';
+    desc += '\nPAGE CONTENT (use this real content — do not replace with generic text):\n';
     for (let i = 0; i < Math.min(data.sections.length, 25); i++) {
       const cleanText = (data.sections[i].textPreview || '')
         .replace(/[^\x20-\x7E\n]/g, '')
-        .substring(0, 500);
-      desc += `  ${i + 1}. ${cleanText}\n`;
+        .substring(0, 800);
+      if (cleanText.trim()) {
+        desc += `\n--- Section ${i + 1} ---\n${cleanText}\n`;
+      }
     }
-    desc += '\n';
   }
 
-  // Footer content
+  // Footer — often has contact details
   if (data.footerContent) {
-    desc += `Footer content:\n  ${data.footerContent.replace(/[^\x20-\x7E\n]/g, '').substring(0, 500)}\n`;
+    desc += `\nFOOTER CONTENT (contains contact details — include these in the site):\n`;
+    desc += `${data.footerContent.replace(/[^\x20-\x7E\n]/g, '').substring(0, 800)}\n`;
+  }
+
+  // Links — useful for booking links etc.
+  if (data.links?.length) {
+    const externalLinks = data.links.filter(l =>
+      l.href.startsWith('http') &&
+      !l.href.includes(new URL(url).hostname) &&
+      l.text.length > 1
+    ).slice(0, 10);
+    if (externalLinks.length) {
+      desc += `\nEXTERNAL LINKS (booking systems, social media, etc.):\n`;
+      for (const link of externalLinks) {
+        desc += `  ${link.text}: ${link.href}\n`;
+      }
+    }
   }
 
   return desc;
 }
 
 function buildSingleFilePrompt(siteInfo, originalUrl, hasScreenshot) {
-  let prompt = `Analyze this business and build a premium, custom-designed website tailored to their industry and audience:
+  let prompt = `Rebuild this business website as a premium version. Use ALL the real content, images, and details provided below.
 
-ORIGINAL WEBSITE: ${originalUrl}
+SOURCE WEBSITE: ${originalUrl}
 
-WEBSITE DETAILS:
 ${siteInfo}
 
-YOUR TASK:
-1. Identify the industry, target audience, and core offerings from the details above
-2. Decide the best page structure, layout style, and conversion strategy for THIS specific type of business
-3. Build a premium website that feels custom-made — not a generic template`;
+INSTRUCTIONS:
+1. Use EVERY image URL listed above — place them in hero sections, galleries, service cards, and backgrounds. No placeholders.
+2. Use the REAL headings and text content — rewrite for impact but keep the same information and details.
+3. Include ALL contact details from the footer/content in a visible contact section.
+4. Match the navigation structure from the original site.
+5. If there are booking links or external links, include them as CTAs.`;
 
   if (hasScreenshot) {
-    prompt += `\n4. Use the provided screenshot as your primary visual reference for layout, style, and color treatment`;
+    prompt += `\n6. The attached screenshot shows the original site layout — use it as visual reference for section order and style.`;
   }
 
   prompt += `
 
-RULES:
-- Do NOT invent services, products, or offerings not listed above
-- Preserve all contact details (phone, email, address) exactly as they appear
-- Use the actual image URLs provided — no placeholders
-- Keep the same business name and branding identity
-- The HTML must be substantial and complete (at least 8000 characters)
-- MUST end with </body></html>
+The HTML MUST end with </body></html> — this is required for chat widget injection after generation.
 
-OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No markdown fences. No explanations.`;
+OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No markdown, no explanations.`;
 
   return prompt;
 }
 
 function buildRefinementPrompt(generatedHtml, siteInfo) {
-  return `Here is a generated website HTML that needs improvement. Review it against the original site details and enhance the quality.
+  return `Review and improve this generated website. Compare it against the original site data and fix any issues.
 
-ORIGINAL SITE DETAILS:
+ORIGINAL SITE DATA:
 ${siteInfo}
 
-GENERATED HTML TO IMPROVE:
+GENERATED HTML TO REVIEW AND IMPROVE:
 \`\`\`html
 ${generatedHtml}
 \`\`\`
 
-Improve this HTML by:
-1. Ensuring all content sections are fully fleshed out with compelling copy
-2. Improving visual design (better spacing, shadows, gradients, animations)
-3. Making responsive design more robust (mobile breakpoints)
-4. Ensuring all original site images are used
-5. Adding any missing sections that a premium version of this site should have
-6. Ensuring it ends with </body></html>
+FIXES NEEDED:
+1. Check every image — are the real URLs from the site data used? Replace any placeholders/gradients with actual image URLs.
+2. Check all text — is it from the original site or is it generic filler? Use the real content.
+3. Check contact details — are address, phone, email from the footer/content visible?
+4. Check services — do they match exactly what the original site offers?
+5. Check the HTML ends with </body></html>
+6. Enhance visual polish: better spacing, shadows, gradients, micro-animations.
 
 OUTPUT: The complete improved HTML file. No explanations, no markdown fences.`;
 }

@@ -6,7 +6,7 @@
 import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
 import { generateWebsite } from './ai-generator.js';
-import { injectWidgets } from './injector.js';
+import { injectWidgets, verifyWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
 import { sendDemoSMS } from './sms.js';
@@ -60,12 +60,18 @@ export async function processEnhancedDemo(leadData) {
     let enhancedHtml;
     try {
       enhancedHtml = injectWidgets(generationResult.files.html);
-      console.log('✅ AI widgets injected');
+      if (verifyWidgets(enhancedHtml)) {
+        console.log('✅ AI widgets injected and verified');
+      } else {
+        console.error('❌ Widget injection produced output but widgets not found in HTML');
+        errors.push('Widget verification failed — scripts may not be present');
+      }
     } catch (injectionError) {
       errors.push(`Widget injection warning: ${injectionError.message}`);
       enhancedHtml = generationResult.files.html;
       console.log('⚠️ Proceeding without AI widgets');
     }
+    console.log(`[orchestrator] HTML length before deploy: ${enhancedHtml.length}, has </body>: ${enhancedHtml.includes('</body>')}, has widget script: ${enhancedHtml.includes('leadconnectorhq')}`);
 
     // Deploy demo
     const slug = generateCompanySlug(leadData.companyName || leadData.name || 'demo');
