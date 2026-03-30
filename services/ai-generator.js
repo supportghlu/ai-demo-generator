@@ -50,7 +50,7 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
   console.log(`[ai-gen] Generating enhanced version of ${originalUrl}...`);
 
   const siteInfo = buildSiteDescription(scrapedData, originalUrl);
-  const prompt = buildSingleFilePrompt(siteInfo, originalUrl, !!screenshot);
+  const prompt = buildSingleFilePrompt(siteInfo, originalUrl, !!screenshot, scrapedData);
 
   // Try Anthropic
   if (!useOpenAI) {
@@ -367,25 +367,27 @@ function buildSiteDescription(data, url) {
     }
   }
 
-  // Images — ALL of them with emphasis
+  // Images — deduplicated, with ready-to-paste img tags
   if (data.images?.length) {
+    const seen = new Set();
     const validImages = data.images.filter(img => {
       if (!img.src) return false;
       if (img.src.startsWith('data:') || img.src.startsWith('blob:')) return false;
       if (img.src.includes('facebook.com/tr') || img.src.includes('google-analytics')) return false;
+      if (img.src.includes('pixel') || img.src.includes('tracking')) return false;
       if (!img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) return false;
+      const clean = img.src.replace(/[^\x20-\x7E]/g, '').trim();
+      if (!clean || seen.has(clean)) return false;
+      seen.add(clean);
       return true;
     }).map(img => ({
       src: img.src.replace(/[^\x20-\x7E]/g, '').trim(),
       alt: img.alt || ''
-    })).filter(img => img.src);
+    })).slice(0, 20); // cap at 20 unique images
 
     if (validImages.length) {
-      desc += `\n*** IMAGES — YOU MUST USE ALL OF THESE (${validImages.length} total) ***\n`;
-      desc += `Do NOT use placeholder images. Do NOT use gradient boxes. Use these EXACT URLs:\n`;
-      for (let i = 0; i < validImages.length; i++) {
-        desc += `  ${i + 1}. ${validImages[i].src}${validImages[i].alt ? ` (${validImages[i].alt.substring(0, 80)})` : ''}\n`;
-      }
+      // Store images separately — they'll be placed at the end of the prompt
+      data._validImages = validImages;
     }
   }
 
@@ -426,7 +428,7 @@ function buildSiteDescription(data, url) {
   return desc;
 }
 
-function buildSingleFilePrompt(siteInfo, originalUrl, hasScreenshot) {
+function buildSingleFilePrompt(siteInfo, originalUrl, hasScreenshot, scrapedData) {
   let prompt = `Rebuild this business website as a premium version. Use ALL the real content, images, and details provided below.
 
 SOURCE WEBSITE: ${originalUrl}
@@ -434,14 +436,31 @@ SOURCE WEBSITE: ${originalUrl}
 ${siteInfo}
 
 INSTRUCTIONS:
-1. Use EVERY image URL listed above — place them in hero sections, galleries, service cards, and backgrounds. No placeholders.
-2. Use the REAL headings and text content — rewrite for impact but keep the same information and details.
-3. Include ALL contact details from the footer/content in a visible contact section.
-4. Match the navigation structure from the original site.
-5. If there are booking links or external links, include them as CTAs.`;
+1. Use the REAL headings and text content — rewrite for impact but keep the same information and details.
+2. Include ALL contact details from the footer/content in a visible contact section.
+3. Match the navigation structure from the original site.
+4. If there are booking links or external links, include them as CTAs.`;
 
   if (hasScreenshot) {
-    prompt += `\n6. The attached screenshot shows the original site layout — use it as visual reference for section order and style.`;
+    prompt += `\n5. The attached screenshot shows the original site layout — use it as visual reference for section order and style.`;
+  }
+
+  // Put images LAST in the prompt (recency bias — AI pays most attention to end of prompt)
+  const images = scrapedData?._validImages || [];
+  if (images.length > 0) {
+    prompt += `
+
+=== MANDATORY IMAGES — COPY THESE <img> TAGS INTO YOUR HTML ===
+You MUST include these <img> tags in your output. Place them in the hero, services, gallery, or about sections.
+Do NOT use CSS gradients or colored boxes instead of images. Use these EXACT tags:
+
+`;
+    for (const img of images) {
+      prompt += `<img src="${img.src}" alt="${img.alt}" loading="lazy" style="width:100%;height:auto;object-fit:cover;">\n`;
+    }
+    prompt += `
+=== END OF MANDATORY IMAGES ===
+Include at least a "Gallery" or "Our Work" section using these images in a CSS grid layout.`;
   }
 
   prompt += `
@@ -452,6 +471,7 @@ OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No markdown,
 
   return prompt;
 }
+
 
 function buildRefinementPrompt(generatedHtml, siteInfo) {
   return `Review and improve this generated website. Compare it against the original site data and fix any issues.
