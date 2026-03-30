@@ -84,21 +84,6 @@ app.get('/dashboard', (req, res) => res.redirect('/status/dashboard'));
 // Root
 app.get('/', (req, res) => {
   res.json({
-    service: 'AI Demo Generator',
-    version: '2.0.0',
-    endpoints: {
-      webhook: 'POST /webhook/demo-request',
-      jobStatus: 'GET /status/:jobId',
-      dashboard: 'GET /dashboard',
-      demo: 'GET /demo/:slug',
-      health: 'GET /health'
-    }
-  });
-});
-
-// Root endpoint update
-app.get('/', (req, res) => {
-  res.json({
     service: 'AI Demo Generator Enhanced',
     version: '3.0.0',
     features: [
