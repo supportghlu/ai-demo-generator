@@ -505,3 +505,74 @@ function extractCodeBlock(content, language) {
   const match = content.match(regex);
   return match ? match[1].trim() : null;
 }
+
+// --- Site Analysis ---
+
+/**
+ * Generate a site analysis comparing the original site to the enhanced demo
+ * @param {object} scrapedData - Output from scraper.js
+ * @param {string} originalUrl - The original website URL
+ * @returns {Promise<{success: boolean, analysis?: object, error?: string}>}
+ */
+export async function generateSiteAnalysis(scrapedData, originalUrl) {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
+    return { success: false, error: 'No Anthropic API key' };
+  }
+
+  const model = 'claude-sonnet-4-20250514';
+  console.log('[ai-gen] Generating site analysis...');
+
+  try {
+    const siteInfo = buildSiteDescription(scrapedData, originalUrl);
+
+    const prompt = `Analyse this business website and identify specific problems with their current site, and what improvements were made in the enhanced demo version.
+
+WEBSITE DATA:
+${siteInfo}
+
+Return a JSON object with this exact structure (no markdown, no explanation — ONLY the JSON):
+{
+  "businessName": "the business name",
+  "industry": "their industry in 2-3 words",
+  "issues": [
+    "specific issue 1 with their current site",
+    "specific issue 2",
+    "specific issue 3",
+    "specific issue 4"
+  ],
+  "improvements": [
+    "specific improvement 1 made in the demo",
+    "specific improvement 2",
+    "specific improvement 3",
+    "specific improvement 4",
+    "Added an AI-powered chat assistant that can answer customer questions, help with bookings, and provide instant support 24/7",
+    "Added an AI voice agent that lets visitors speak naturally to get information about services, pricing, and availability"
+  ]
+}
+
+RULES:
+- "issues" must be real, specific problems visible in the scraped data (e.g. "No online booking integration visible on the homepage", "No customer reviews or testimonials displayed", "No gallery showcasing your work to potential customers")
+- "improvements" must describe what the demo fixes, PLUS always include the AI chat assistant and AI voice agent as the last two improvements — these are always added
+- Keep each point to one clear, concise sentence
+- 4-6 issues, 4-6 improvements (including the two AI widget points)
+- Be specific to THIS business and industry — not generic`;
+
+    const result = await _callAnthropicRaw(anthropicKey, 'You are a website analyst. Return only valid JSON.', prompt, model, null, 1);
+
+    let analysis;
+    try {
+      const jsonStr = result.replace(/```json?\s*\n?/g, '').replace(/```\s*$/g, '').trim();
+      analysis = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error('[ai-gen] Failed to parse analysis JSON:', result.substring(0, 200));
+      return { success: false, error: 'Failed to parse analysis' };
+    }
+
+    console.log(`[ai-gen] Analysis generated: ${analysis.issues?.length} issues, ${analysis.improvements?.length} improvements`);
+    return { success: true, analysis };
+  } catch (err) {
+    console.error('[ai-gen] Analysis generation failed:', err.message);
+    return { success: false, error: err.message };
+  }
+}

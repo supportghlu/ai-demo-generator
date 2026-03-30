@@ -5,7 +5,7 @@
 
 import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
-import { generateWebsite } from './ai-generator.js';
+import { generateWebsite, generateSiteAnalysis } from './ai-generator.js';
 import { injectWidgets, verifyWidgets } from './injector.js';
 import { deployDemo } from './deployer.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
@@ -45,8 +45,9 @@ export async function processEnhancedDemo(leadData) {
     }
     console.log(`✅ Website scraped: ${scrapeResult.data.sections?.length || 0} sections found, screenshot: ${scrapeResult.data.screenshot ? 'yes' : 'no'}`);
 
-    // Step 3: Generate enhanced website
-    console.log('[orchestrator] Step 3/4: Generating enhanced website...');
+    // Step 3: Generate enhanced website + analysis (in parallel)
+    console.log('[orchestrator] Step 3/4: Generating enhanced website + analysis...');
+    const analysisPromise = generateSiteAnalysis(scrapeResult.data, leadData.websiteUrl);
     const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl, scrapeResult.data.screenshot);
     if (!generationResult.success) {
       throw new Error(`Website generation failed: ${generationResult.error}`);
@@ -86,6 +87,20 @@ export async function processEnhancedDemo(leadData) {
     }
     console.log(`✅ Demo deployed: ${deployResult.demoUrl}`);
 
+    // Resolve site analysis
+    let siteAnalysis = null;
+    try {
+      const analysisResult = await analysisPromise;
+      if (analysisResult.success) {
+        siteAnalysis = analysisResult.analysis;
+        console.log(`✅ Site analysis: ${siteAnalysis.issues?.length} issues, ${siteAnalysis.improvements?.length} improvements`);
+      } else {
+        console.log(`⚠️ Site analysis failed: ${analysisResult.error}`);
+      }
+    } catch (analysisErr) {
+      console.log(`⚠️ Site analysis error: ${analysisErr.message}`);
+    }
+
     // Update CRM
     try {
       const crmResult = await upsertContactWithDemo({
@@ -99,7 +114,7 @@ export async function processEnhancedDemo(leadData) {
         
         // Send SMS notification
         try {
-          const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name);
+          const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name, siteAnalysis);
           if (smsResult.sent) {
             console.log(`✅ SMS sent: ${smsResult.message}`);
           } else {
@@ -113,7 +128,7 @@ export async function processEnhancedDemo(leadData) {
         
         // Send Email notification
         try {
-          const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email);
+          const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email, siteAnalysis);
           if (emailResult.sent) {
             console.log(`✅ Email sent: ${emailResult.message}`);
           } else {
