@@ -2,110 +2,129 @@
  * AI Website Generator — uses AI to generate an enhanced website from scraped data
  *
  * Single-file approach: one AI call generates a complete HTML file with embedded CSS and JS.
- * Supports Anthropic Claude (primary) and OpenAI (fallback).
+ * Supports Anthropic Claude (primary) with vision, and OpenAI (fallback).
+ * Optional refinement pass for higher quality output.
  */
-
-import { generateWebsiteViaOpenClaw } from './openclaw-ai.js';
 
 /**
  * Generate website files from scraped data
  * @param {object} scrapedData - Output from scraper.js
  * @param {string} originalUrl - The original website URL
+ * @param {string|null} screenshot - Base64 JPEG screenshot from Puppeteer (optional)
  * @returns {Promise<{success: boolean, files?: object, error?: string}>}
  */
-export async function generateWebsite(scrapedData, originalUrl) {
-  // Try OpenClaw integration first (for Claude Sonnet access)
-  if (process.env.USE_OPENCLAW === 'true') {
-    console.log('[ai-gen] Using OpenClaw integration for Claude Sonnet...');
-    const openclawResult = await generateWebsiteViaOpenClaw(scrapedData, originalUrl);
-    if (openclawResult.success) {
-      return openclawResult;
-    }
-    console.log('[ai-gen] OpenClaw failed, falling back to direct API...');
-  }
-
-  // Fallback to direct API calls
+export async function generateWebsite(scrapedData, originalUrl, screenshot = null) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
   if (!anthropicKey && !openaiKey) {
     return { success: false, error: 'No AI API key configured (need ANTHROPIC_API_KEY or OPENAI_API_KEY)' };
   }
-  
-  console.log(`[ai-gen] Available keys - Anthropic: ${anthropicKey ? 'YES' : 'NO'}, OpenAI: ${openaiKey ? 'YES' : 'NO'}`);
 
-  // Force OpenAI for GPT models since Anthropic Sonnet has access issues
-  const modelName = process.env.AI_MODEL || 'gpt-4o';
-  console.log(`[ai-gen] Raw AI_MODEL from env: ${process.env.AI_MODEL}, final modelName: ${modelName}`);
-  
-  // CRITICAL FIX: Determine provider based on model name to avoid API mismatch
-  const isGPTModel = modelName.toLowerCase().includes('gpt');
-  const isClaudeModel = modelName.toLowerCase().includes('claude') || modelName.toLowerCase().includes('sonnet') || modelName.toLowerCase().includes('haiku');
-  
-  let useOpenAI, actualModel;
-  
-  // CRITICAL FIX: Since Anthropic Sonnet access is broken, ALWAYS prefer OpenAI when available
-  if (openaiKey) {
+  // Provider selection: Anthropic primary, OpenAI fallback
+  const configuredModel = process.env.AI_MODEL || '';
+  const isGPTModel = configuredModel.toLowerCase().includes('gpt');
+
+  let useOpenAI, model;
+
+  if (isGPTModel && openaiKey) {
+    // User explicitly configured a GPT model
     useOpenAI = true;
-    // Use configured GPT model or default to GPT-4o  
-    actualModel = isGPTModel ? modelName : 'gpt-4o';
-    console.log(`[ai-gen] FORCING OpenAI usage due to Anthropic access issues`);
-  } else if (isGPTModel && openaiKey) {
-    useOpenAI = true;
-    actualModel = modelName;
-  } else if (isClaudeModel && anthropicKey) {
-    useOpenAI = false;
-    actualModel = modelName;
+    model = configuredModel;
   } else if (anthropicKey) {
-    // Default to Anthropic Haiku if available
+    // Default: Anthropic Claude
     useOpenAI = false;
-    actualModel = 'claude-3-haiku-20240307';
+    model = configuredModel || 'claude-sonnet-4-20250514';
+  } else if (openaiKey) {
+    // Fallback: OpenAI
+    useOpenAI = true;
+    model = configuredModel || 'gpt-4o';
   } else {
     return { success: false, error: 'No compatible AI API key available' };
   }
-  
+
   const provider = useOpenAI ? 'OpenAI' : 'Anthropic';
-  
-  console.log(`[ai-gen] Model: ${actualModel}, Provider: ${provider}, AnthropicKey: ${anthropicKey ? 'present' : 'missing'}, OpenAIKey: ${openaiKey ? 'present' : 'missing'}`);
-  console.log(`[ai-gen] Generating enhanced version of ${originalUrl} via ${provider} (single-file)...`);
+  console.log(`[ai-gen] Provider: ${provider}, Model: ${model}, Screenshot: ${screenshot ? 'yes' : 'no'}`);
+  console.log(`[ai-gen] Generating enhanced version of ${originalUrl}...`);
 
   try {
     const siteInfo = buildSiteDescription(scrapedData, originalUrl);
-    
-    // Single-pass: Generate complete HTML file with embedded CSS
-    console.log('[ai-gen] Generating complete enhanced HTML file...');
-    const prompt = buildSingleFilePrompt(siteInfo, originalUrl);
-    
+    const prompt = buildSingleFilePrompt(siteInfo, originalUrl, !!screenshot);
+
+    // First pass: generate complete HTML
+    console.log('[ai-gen] Pass 1: Generating complete enhanced HTML...');
     let html = useOpenAI
-      ? await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, actualModel)
-      : await callAnthropic(anthropicKey, SINGLE_FILE_SYSTEM, prompt, actualModel);
-    
+      ? await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, model)
+      : await callAnthropic(anthropicKey, getSystemPrompt(!!screenshot), prompt, model, screenshot);
+
     html = extractCodeBlock(html, 'html') || html;
     if (!html || html.length < 1000) {
       return { success: false, error: 'Failed to generate complete HTML file' };
     }
-    
-    console.log(`[ai-gen] Complete HTML file generated: ${html.length} chars`);
+    console.log(`[ai-gen] Pass 1 complete: ${html.length} chars`);
 
-    // Return single HTML file (no separate CSS/JS needed)
-    const files = { 
-      html: html,
-      css: '', // Empty since CSS is embedded
-      js: ''   // Empty since JS is embedded
-    };
+    // Refinement pass (optional)
+    if (process.env.ENABLE_REFINEMENT !== 'false' && !useOpenAI) {
+      try {
+        console.log('[ai-gen] Pass 2: Refining generated HTML...');
+        const refinementPrompt = buildRefinementPrompt(html, siteInfo);
+        const refined = await callAnthropic(
+          anthropicKey, REFINEMENT_SYSTEM, refinementPrompt, model, screenshot
+        );
+        const refinedHtml = extractCodeBlock(refined, 'html') || refined;
+        if (refinedHtml && refinedHtml.length > html.length * 0.5) {
+          html = refinedHtml;
+          console.log(`[ai-gen] Pass 2 complete: ${html.length} chars`);
+        } else {
+          console.log('[ai-gen] Pass 2 output too short, keeping pass 1 result');
+        }
+      } catch (refineErr) {
+        console.warn(`[ai-gen] Refinement failed (using pass 1): ${refineErr.message}`);
+      }
+    }
 
-    return { success: true, files };
+    console.log(`[ai-gen] Final HTML: ${html.length} chars`);
+    return { success: true, files: { html, css: '', js: '' } };
   } catch (err) {
     console.error(`[ai-gen] Generation failed:`, err);
+
+    // If Anthropic failed and we have an OpenAI key, try fallback
+    if (!useOpenAI && openaiKey) {
+      console.log('[ai-gen] Attempting OpenAI fallback...');
+      try {
+        const siteInfo = buildSiteDescription(scrapedData, originalUrl);
+        const prompt = buildSingleFilePrompt(siteInfo, originalUrl, false);
+        let html = await callOpenAI(openaiKey, SINGLE_FILE_SYSTEM, prompt, 'gpt-4o');
+        html = extractCodeBlock(html, 'html') || html;
+        if (html && html.length >= 1000) {
+          console.log(`[ai-gen] OpenAI fallback succeeded: ${html.length} chars`);
+          return { success: true, files: { html, css: '', js: '' } };
+        }
+      } catch (fallbackErr) {
+        console.error(`[ai-gen] OpenAI fallback also failed:`, fallbackErr);
+      }
+    }
+
     return { success: false, error: `AI generation failed: ${err.message}` };
   }
 }
 
-// --- API Callers with retry ---
+// --- API Callers ---
 
-async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName = 'claude-3-haiku-20240307', retries = 2) {
+async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName, screenshot = null, retries = 2) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      // Build message content — multimodal if screenshot provided
+      let content;
+      if (screenshot) {
+        content = [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: screenshot } },
+          { type: 'text', text: userPrompt }
+        ];
+      } else {
+        content = userPrompt;
+      }
+
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -115,17 +134,18 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName = 'clau
         },
         body: JSON.stringify({
           model: modelName,
-          max_tokens: 4096,
+          max_tokens: 16384,
           temperature: 0.2,
           system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
+          messages: [{ role: 'user', content }]
         })
       });
 
-      if (response.status === 529 || response.status === 500) {
+      if (response.status === 529 || response.status === 500 || response.status === 429) {
         if (attempt < retries) {
-          console.log(`[ai-gen] Anthropic ${response.status}, retrying in ${(attempt + 1) * 5}s...`);
-          await sleep((attempt + 1) * 5000);
+          const delay = response.status === 429 ? (attempt + 1) * 10000 : (attempt + 1) * 5000;
+          console.log(`[ai-gen] Anthropic ${response.status}, retrying in ${delay / 1000}s...`);
+          await sleep(delay);
           continue;
         }
       }
@@ -138,7 +158,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName = 'clau
       const result = await response.json();
       return result.content?.[0]?.text || '';
     } catch (err) {
-      if (attempt < retries && (err.message.includes('529') || err.message.includes('500'))) {
+      if (attempt < retries && (err.message.includes('529') || err.message.includes('500') || err.message.includes('429'))) {
         await sleep((attempt + 1) * 5000);
         continue;
       }
@@ -178,6 +198,20 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // --- System Prompts ---
 
+function getSystemPrompt(hasScreenshot) {
+  let prompt = SINGLE_FILE_SYSTEM;
+  if (hasScreenshot) {
+    prompt += `\n\nVISUAL REFERENCE:
+You are provided with a screenshot of the original website. Study it carefully to match:
+- The overall visual style, layout proportions, and color balance
+- Section ordering and content hierarchy
+- Typography scale and spacing
+- The general aesthetic and brand feel
+Use the screenshot as your primary design reference.`;
+  }
+  return prompt;
+}
+
 const SINGLE_FILE_SYSTEM = `You are an expert web designer and conversion strategist. Your job is to analyze a business, understand its industry, audience, and offerings, then build a custom-designed premium website tailored specifically to that business.
 
 APPROACH:
@@ -207,51 +241,94 @@ QUALITY STANDARDS:
 - Mobile-first responsive design
 - Smooth interactions and hover effects
 - Every design choice should serve the business's specific goals
+- The generated HTML must be substantial and complete — at least 8000 characters
+- Include at least 5 distinct, well-designed page sections
 
 TECHNICAL:
 - Single complete HTML file with embedded <style> and <script> tags
 - Semantic HTML5, CSS Grid/Flexbox, CSS custom properties
-- Ensure a proper </body> tag exists for widget injection
+- Google Fonts loaded via <link> tag in the <head>
+- Smooth scroll behavior, scroll-triggered animations via IntersectionObserver
+- MUST end with proper </body></html> tags (required for widget injection)
 
 OUTPUT: Complete HTML file only. No explanations, no markdown fences.`;
+
+const REFINEMENT_SYSTEM = `You are a senior web designer reviewing and improving a generated website. You will receive the generated HTML code and details about the original website.
+
+Your job is to improve the HTML by:
+1. Ensuring the layout and visual hierarchy match what a premium site in this industry should look like
+2. Filling in any sections that feel incomplete or placeholder-like
+3. Improving responsive design (check media queries for mobile/tablet)
+4. Enhancing visual polish — shadows, gradients, spacing, micro-animations
+5. Ensuring all content from the original site is accurately represented
+6. Making sure the HTML ends with proper </body></html> tags
+7. Verifying all image URLs from the original site are used (not placeholders)
+
+Do NOT remove any sections. Only improve and enhance. The output must be a COMPLETE HTML file — do not output partial snippets.
+
+OUTPUT: Complete improved HTML file only. No explanations, no markdown fences.`;
 
 // --- Prompt Builders ---
 
 function buildSiteDescription(data, url) {
   let desc = `Website: ${url}\nTitle: ${data.title || 'Unknown'}\n`;
   if (data.metaDescription) desc += `Description: ${data.metaDescription}\n`;
-  if (data.fonts?.length) desc += `Fonts: ${data.fonts.join(', ')}\n`;
-  if (data.colors?.length) {
-    console.log('[ai-gen] Raw colors:', JSON.stringify(data.colors.slice(0, 20)));
-    const cleanColors = data.colors
+
+  // Fonts — combine extracted and computed
+  const allFonts = new Set([...(data.fonts || []), ...(data.computedFonts || [])]);
+  if (allFonts.size) desc += `Fonts: ${[...allFonts].join(', ')}\n`;
+
+  // Colors — combine extracted and computed
+  if (data.colors?.length || data.computedColors?.length) {
+    const rawColors = data.colors || [];
+    const cleanColors = rawColors
       .map(c => (c || '').trim())
       .filter(c => /^#[0-9a-fA-F]{3,8}$/.test(c) || /^rgb/.test(c) || /^hsl/.test(c))
-      .slice(0, 15);
-    console.log('[ai-gen] Clean colors:', JSON.stringify(cleanColors));
-    if (cleanColors.length) desc += `Colors: ${cleanColors.join(', ')}\n`;
+      .slice(0, 25);
+    const computedColors = (data.computedColors || []).slice(0, 10);
+    const bgColors = (data.computedBgColors || []).slice(0, 10);
+    const allColors = [...new Set([...cleanColors, ...computedColors, ...bgColors])];
+    if (allColors.length) desc += `Colors: ${allColors.join(', ')}\n`;
   }
-  if (data.navigation?.length) desc += `Navigation: ${data.navigation.map(n => n.text).join(' | ')}\n`;
+
+  // Computed styles summary
+  if (data.computedStyles) {
+    desc += '\nComputed Styles (from rendered page):\n';
+    for (const [element, styles] of Object.entries(data.computedStyles)) {
+      if (styles) {
+        desc += `  ${element}: font=${styles.fontFamily?.split(',')[0]?.trim()}, color=${styles.color}, bg=${styles.backgroundColor}\n`;
+      }
+    }
+  }
+
+  if (data.navigation?.length) desc += `\nNavigation: ${data.navigation.map(n => n.text).join(' | ')}\n`;
+
+  // CTA buttons
+  if (data.ctaButtons?.length) {
+    desc += `\nCall-to-Action buttons: ${data.ctaButtons.join(' | ')}\n`;
+  }
+
   desc += '\n';
 
+  // Headings (increased limit)
   if (data.headings?.length) {
     desc += 'Headings:\n';
-    for (const h of data.headings.slice(0, 20)) {
+    for (const h of data.headings.slice(0, 40)) {
       desc += `  ${h.level}: ${h.text}\n`;
     }
     desc += '\n';
   }
 
+  // Images (increased limit)
   if (data.images?.length) {
-    console.log('[ai-gen] Images in prompt:', data.images?.slice(0, 12).map(i => i.src?.substring(0, 80)));
     desc += 'Images (use these URLs):\n';
-    for (const img of data.images.slice(0, 12)) {
+    for (const img of data.images.slice(0, 30)) {
       if (!img.src ||
           img.src.startsWith('data:') ||
           img.src.startsWith('blob:') ||
-          img.src.includes('facebook.com/tr') ||  // tracking pixels
+          img.src.includes('facebook.com/tr') ||
           img.src.includes('google-analytics') ||
-          !img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) continue; // must look like an image
-      // Strip any characters outside printable ASCII
+          !img.src.match(/\.(png|jpg|jpeg|gif|webp|svg|avif)/i)) continue;
       const cleanSrc = img.src.replace(/[^\x20-\x7E]/g, '').trim();
       if (!cleanSrc) continue;
       desc += `  ${cleanSrc}${img.alt ? ` (${img.alt.substring(0, 60)})` : ''}\n`;
@@ -259,21 +336,28 @@ function buildSiteDescription(data, url) {
     desc += '\n';
   }
 
+  // Content sections (increased limits)
   if (data.sections?.length) {
     desc += 'Content sections:\n';
-    for (let i = 0; i < Math.min(data.sections.length, 10); i++) {
+    for (let i = 0; i < Math.min(data.sections.length, 25); i++) {
       const cleanText = (data.sections[i].textPreview || '')
-        .replace(/[^\x20-\x7E\n]/g, '') // keep only printable ASCII + newlines
-        .substring(0, 150);
+        .replace(/[^\x20-\x7E\n]/g, '')
+        .substring(0, 500);
       desc += `  ${i + 1}. ${cleanText}\n`;
     }
+    desc += '\n';
+  }
+
+  // Footer content
+  if (data.footerContent) {
+    desc += `Footer content:\n  ${data.footerContent.replace(/[^\x20-\x7E\n]/g, '').substring(0, 500)}\n`;
   }
 
   return desc;
 }
 
-function buildSingleFilePrompt(siteInfo, originalUrl) {
-  return `Analyze this business and build a premium, custom-designed website tailored to their industry and audience:
+function buildSingleFilePrompt(siteInfo, originalUrl, hasScreenshot) {
+  let prompt = `Analyze this business and build a premium, custom-designed website tailored to their industry and audience:
 
 ORIGINAL WEBSITE: ${originalUrl}
 
@@ -283,18 +367,48 @@ ${siteInfo}
 YOUR TASK:
 1. Identify the industry, target audience, and core offerings from the details above
 2. Decide the best page structure, layout style, and conversion strategy for THIS specific type of business
-3. Build a premium website that feels custom-made — not a generic template
+3. Build a premium website that feels custom-made — not a generic template`;
+
+  if (hasScreenshot) {
+    prompt += `\n4. Use the provided screenshot as your primary visual reference for layout, style, and color treatment`;
+  }
+
+  prompt += `
 
 RULES:
 - Do NOT invent services, products, or offerings not listed above
 - Preserve all contact details (phone, email, address) exactly as they appear
 - Use the actual image URLs provided — no placeholders
 - Keep the same business name and branding identity
+- The HTML must be substantial and complete (at least 8000 characters)
+- MUST end with </body></html>
 
 OUTPUT: Single complete HTML file with embedded CSS and JavaScript. No markdown fences. No explanations.`;
+
+  return prompt;
 }
 
+function buildRefinementPrompt(generatedHtml, siteInfo) {
+  return `Here is a generated website HTML that needs improvement. Review it against the original site details and enhance the quality.
 
+ORIGINAL SITE DETAILS:
+${siteInfo}
+
+GENERATED HTML TO IMPROVE:
+\`\`\`html
+${generatedHtml}
+\`\`\`
+
+Improve this HTML by:
+1. Ensuring all content sections are fully fleshed out with compelling copy
+2. Improving visual design (better spacing, shadows, gradients, animations)
+3. Making responsive design more robust (mobile breakpoints)
+4. Ensuring all original site images are used
+5. Adding any missing sections that a premium version of this site should have
+6. Ensuring it ends with </body></html>
+
+OUTPUT: The complete improved HTML file. No explanations, no markdown fences.`;
+}
 
 // --- Helpers ---
 

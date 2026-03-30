@@ -35,19 +35,19 @@ export async function processEnhancedDemo(leadData) {
     // Step 2: Scrape original website with timeout
     console.log('[orchestrator] Step 2/4: Scraping website...');
     const scrapePromise = scrapeWebsite(leadData.websiteUrl);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Scraping timeout after 30 seconds')), 30000)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Scraping timeout after 45 seconds')), 45000)
     );
     
     const scrapeResult = await Promise.race([scrapePromise, timeoutPromise]);
     if (!scrapeResult.success) {
       throw new Error(`Website scraping failed: ${scrapeResult.error}`);
     }
-    console.log(`✅ Website scraped: ${scrapeResult.data.sections?.length || 0} sections found`);
+    console.log(`✅ Website scraped: ${scrapeResult.data.sections?.length || 0} sections found, screenshot: ${scrapeResult.data.screenshot ? 'yes' : 'no'}`);
 
     // Step 3: Generate enhanced website
     console.log('[orchestrator] Step 3/4: Generating enhanced website...');
-    const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl);
+    const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl, scrapeResult.data.screenshot);
     if (!generationResult.success) {
       throw new Error(`Website generation failed: ${generationResult.error}`);
     }
