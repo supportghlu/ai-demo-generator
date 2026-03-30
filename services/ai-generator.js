@@ -57,14 +57,7 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
 
   // Try Anthropic with multiple models before falling back to OpenAI
   if (!useOpenAI) {
-    const claudeModels = [
-      model,
-      'claude-sonnet-4-20250514',
-      'claude-3-7-sonnet-20250219',
-      'claude-3-5-sonnet-20240620'
-    ];
-    // Deduplicate
-    const modelsToTry = [...new Set(claudeModels)];
+    const modelsToTry = [model];
 
     for (const claudeModel of modelsToTry) {
       try {

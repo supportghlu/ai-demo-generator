@@ -103,7 +103,7 @@ router.get('/anthropic-test', async (req, res) => {
       return res.json({ status: 'ERROR', message: 'ANTHROPIC_API_KEY not configured' });
     }
 
-    const models = ['claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307'];
+    const models = ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'];
     const results = [];
 
     for (const model of models) {
