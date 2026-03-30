@@ -117,18 +117,54 @@ export async function generateWebsite(scrapedData, originalUrl, screenshot = nul
 // --- API Callers ---
 
 async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName, screenshot = null, retries = 2) {
+  // If vision request fails with 400, retry without screenshot
+  const attempts = screenshot ? ['with_screenshot', 'without_screenshot'] : ['without_screenshot'];
+
+  for (const mode of attempts) {
+    const useScreenshot = mode === 'with_screenshot' && screenshot;
+    try {
+      const result = await _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, useScreenshot ? screenshot : null, retries);
+      return result;
+    } catch (err) {
+      if (mode === 'with_screenshot' && err.message.includes('400')) {
+        console.warn(`[ai-gen] Vision request failed (400), retrying without screenshot...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+async function _callAnthropicRaw(apiKey, systemPrompt, userPrompt, modelName, screenshot, retries) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       // Build message content — multimodal if screenshot provided
       let content;
       if (screenshot) {
         content = [
-          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: screenshot } },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: screenshot }
+          },
           { type: 'text', text: userPrompt }
         ];
       } else {
         content = userPrompt;
       }
+
+      const requestBody = {
+        model: modelName,
+        max_tokens: 8192,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [{ role: 'user', content }]
+      };
+
+      // Log request structure for debugging (no actual content)
+      console.log(`[ai-gen] Anthropic request: model=${modelName}, max_tokens=${requestBody.max_tokens}, ` +
+        `content_type=${screenshot ? 'image+text' : 'text'}, ` +
+        `system_length=${systemPrompt.length}, prompt_length=${userPrompt.length}` +
+        (screenshot ? `, screenshot_b64_length=${screenshot.length}` : ''));
 
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -137,13 +173,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName, screen
           'anthropic-version': '2023-06-01',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          model: modelName,
-          max_tokens: 16384,
-          temperature: 0.2,
-          system: systemPrompt,
-          messages: [{ role: 'user', content }]
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.status === 529 || response.status === 500 || response.status === 429) {
@@ -157,12 +187,14 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt, modelName, screen
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error(`[ai-gen] Anthropic ${response.status} response:`, errText.substring(0, 500));
+        console.error(`[ai-gen] Anthropic ${response.status} full response:`, errText.substring(0, 1000));
         throw new Error(`Anthropic API error: ${response.status} ${errText.substring(0, 300)}`);
       }
 
       const result = await response.json();
-      return result.content?.[0]?.text || '';
+      const output = result.content?.[0]?.text || '';
+      console.log(`[ai-gen] Anthropic response: ${output.length} chars, stop_reason=${result.stop_reason}`);
+      return output;
     } catch (err) {
       if (attempt < retries && (err.message.includes('529') || err.message.includes('500') || err.message.includes('429'))) {
         await sleep((attempt + 1) * 5000);
