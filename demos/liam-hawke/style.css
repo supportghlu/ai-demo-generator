@@ -1,0 +1,174 @@
+/* Global Styles */
+body {
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+
+a {
+  text-decoration: none;
+  color: #007bff;
+}
+
+/* Header Styles */
+header {
+  background-color: #f8f9fa;
+  padding: 80px 20px;
+}
+
+.hero-section {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero-section h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.hero-section p {
+  font-size: 18px;
+  margin-bottom: 30px;
+}
+
+.hero-section .cta {
+  display: inline-block;
+  background-color: #007bff;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 500;
+  padding: 12px 30px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.hero-section .cta:hover {
+  background-color: #0056b3;
+}
+
+.hero-section .testimonial {
+  font-style: italic;
+  margin-top: 20px;
+}
+
+/* Main Content Styles */
+main {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 60px 20px;
+}
+
+section {
+  margin-bottom: 60px;
+}
+
+section h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+section p {
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 30px;
+}
+
+section .cta {
+  display: inline-block;
+  background-color: #007bff;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 10px 25px;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+section .cta:hover {
+  background-color: #0056b3;
+}
+
+.benefits ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.benefits li {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+/* Footer Styles */
+footer {
+  background-color: #f8f9fa;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.trust-signals {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.trust-signals p {
+  font-size: 14px;
+  margin: 0 20px;
+}
+
+.contact p {
+  font-size: 16px;
+}
+
+/* Responsive Styles */
+@media (max-width: 767px) {
+  header {
+    padding: 60px 20px;
+  }
+
+  .hero-section h1 {
+    font-size: 28px;
+  }
+
+  .hero-section p {
+    font-size: 16px;
+  }
+
+  .hero-section .cta {
+    font-size: 16px;
+    padding: 10px 25px;
+  }
+
+  main {
+    padding: 40px 20px;
+  }
+
+  section h2 {
+    font-size: 24px;
+  }
+
+  section p {
+    font-size: 14px;
+  }
+
+  section .cta {
+    font-size: 14px;
+    padding: 8px 20px;
+  }
+
+  .benefits li {
+    font-size: 14px;
+  }
+
+  .trust-signals p {
+    font-size: 12px;
+  }
+
+  .contact p {
+    font-size: 14px;
+  }
+}
