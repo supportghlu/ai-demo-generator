@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getJob, getJobLogs, getAllJobs, getJobStats } from '../db.js';
+import { getJob, getJobLogs, getAllJobs, getJobStats } from '../db-hybrid.js';
 
 const router = Router();
 
@@ -7,13 +7,13 @@ const router = Router();
  * GET /status/:jobId
  * Returns full job details with logs
  */
-router.get('/:jobId', (req, res) => {
-  const job = getJob(req.params.jobId);
+router.get('/:jobId', async (req, res) => {
+  const job = await getJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ status: 'error', message: 'Job not found' });
   }
 
-  const logs = getJobLogs(req.params.jobId);
+  const logs = await getJobLogs(req.params.jobId);
   res.json({ job, logs });
 });
 
@@ -21,8 +21,8 @@ router.get('/:jobId', (req, res) => {
  * GET /health
  * Service health check
  */
-router.get('/', (req, res) => {
-  const stats = getJobStats();
+router.get('/', async (req, res) => {
+  const stats = await getJobStats();
   res.json({
     status: 'ok',
     uptime: process.uptime(),
@@ -34,9 +34,9 @@ router.get('/', (req, res) => {
  * GET /dashboard
  * Simple HTML dashboard for monitoring
  */
-router.get('/dashboard', (req, res) => {
-  const jobs = getAllJobs();
-  const stats = getJobStats();
+router.get('/dashboard', async (req, res) => {
+  const jobs = await getAllJobs();
+  const stats = await getJobStats();
 
   const statusColor = (s) => {
     const colors = {

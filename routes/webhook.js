@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { createJob, addLog } from '../db.js';
+import { createJob, addLog } from '../db-hybrid.js';
 
 const router = Router();
 
@@ -8,7 +8,7 @@ const router = Router();
  * POST /webhook/demo-request
  * Receives form submissions from GHL and queues demo generation jobs
  */
-router.post('/demo-request', (req, res) => {
+router.post('/demo-request', async (req, res) => {
   try {
     const body = req.body;
     console.log('[webhook] Received demo request:', JSON.stringify(body, null, 2));
@@ -65,8 +65,8 @@ router.post('/demo-request', (req, res) => {
 
     // Create job with additional data for enhanced processing
     const jobId = uuidv4();
-    const job = createJob(jobId, name, email, phone, normalizedUrl, contactId, companyName);
-    addLog(jobId, 'created', `Job created for ${normalizedUrl} (${name}, ${email}) - Contact ID: ${contactId || 'none'}`);
+    const job = await createJob(jobId, name, email, phone, normalizedUrl, contactId, companyName);
+    await addLog(jobId, 'created', `Job created for ${normalizedUrl} (${name}, ${email}) - Contact ID: ${contactId || 'none'}`);
 
     console.log(`[webhook] Job ${jobId} created for ${normalizedUrl} - Contact ID: ${contactId || 'none'}`);
 

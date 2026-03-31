@@ -7,7 +7,7 @@ import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
 import { generateWebsite, generateSiteAnalysis } from './ai-generator.js';
 import { injectWidgets, verifyWidgets } from './injector.js';
-import { deployDemo } from './deployer.js';
+import { deployDemo } from './deployer-postgres.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
 import { sendDemoSMS } from './sms.js';
 import { sendDemoEmail } from './email.js';

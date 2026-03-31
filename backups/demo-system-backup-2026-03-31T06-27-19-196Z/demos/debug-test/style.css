@@ -1,0 +1,131 @@
+/* Global Styles */
+body {
+  font-family: 'Montserrat', sans-serif;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Header Styles */
+.header {
+  background-color: #0072C6;
+  color: #fff;
+  padding: 4rem 2rem;
+}
+
+.header h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.header p {
+  font-size: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.header .cta {
+  display: inline-block;
+  background-color: #FFC107;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.3s ease;
+}
+
+.header .cta:hover {
+  background-color: #FFD54F;
+}
+
+.header .testimonial {
+  font-size: 1.1rem;
+  font-style: italic;
+  margin-top: 2rem;
+  text-align: right;
+}
+
+/* Features Section */
+.features {
+  padding: 4rem 2rem;
+}
+
+.features h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.features p {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.features .feature-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.features .feature-item i {
+  font-size: 2.5rem;
+  color: #0072C6;
+  margin-right: 1.5rem;
+}
+
+.features .feature-item h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.features .feature-item p {
+  font-size: 1rem;
+  margin-bottom: 0;
+}
+
+/* CTA Section */
+.cta-section {
+  background-color: #F5F5F5;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.cta-section h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.cta-section p {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.cta-section .cta {
+  display: inline-block;
+  background-color: #0072C6;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.3s ease;
+}
+
+.cta-section .cta:hover {
+  background-color: #005A9E;
+}
+
+/* Footer Styles */
+.footer {
+  background-color: #333;
+  color: #fff;
+  padding: 2rem;
+  text-align: center;
+}
+
+.footer p {
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}

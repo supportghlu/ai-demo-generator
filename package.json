@@ -1,18 +1,21 @@
 {
   "name": "ai-demo-generator",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "type": "module",
-  "description": "AI Website Demo Generator - Orchestration service for GHLU",
-  "main": "server.js",
+  "description": "AI Website Demo Generator - PostgreSQL Persistent Edition",
+  "main": "server-postgres.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server-postgres.js",
+    "dev": "node --watch server-postgres.js",
+    "migrate": "node scripts/migrate-to-production.js",
+    "test-db": "node test-db-hybrid.js"
   },
   "dependencies": {
     "axios": "^1.13.6",
     "better-sqlite3": "^11.0.0",
     "dotenv": "^17.3.1",
     "express": "^4.21.0",
+    "pg": "^8.20.0",
     "puppeteer": "^23.0.0",
     "uuid": "^10.0.0"
   }
