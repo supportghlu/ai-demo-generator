@@ -37,7 +37,7 @@ router.get('/stats', async (req, res) => {
         const client = await pool.connect();
         try {
           const todayResult = await client.query(
-            `SELECT COUNT(*) as count FROM jobs WHERE status = 'completed' AND created_at >= CURRENT_DATE`
+            `SELECT COUNT(*) as count FROM jobs WHERE status = 'completed' AND created_at >= (NOW() - INTERVAL '24 hours')`
           );
           todayCompleted = parseInt(todayResult.rows[0]?.count) || 0;
 
