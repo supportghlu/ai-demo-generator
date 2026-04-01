@@ -83,8 +83,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Dashboard redirect
-app.get('/dashboard', (req, res) => res.redirect('/status/dashboard'));
+// Enhanced dashboard (direct serve)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'monitoring-dashboard.html'));
+});
 
 // Root
 app.get('/', (req, res) => {
