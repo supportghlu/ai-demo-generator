@@ -16,6 +16,7 @@ import {
 import webhookRouter from './routes/webhook.js';
 import statusRouter from './routes/status.js';
 import diagnosticRouter from './routes/diagnostic.js';
+import apiRouter from './routes/api.js';
 import { startEnhancedProcessor, getProcessorStats } from './queue/enhanced-processor-postgres.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -39,10 +40,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Static files
+app.use(express.static(join(__dirname, 'public')));
+
 // Routes
 app.use('/webhook', webhookRouter);
 app.use('/status', statusRouter);
 app.use('/diagnostic', diagnosticRouter);
+app.use('/api', apiRouter);
 
 // Database-based demo serving (PostgreSQL)
 async function serveDemoFromDatabase(slug, filePath, res) {
@@ -141,8 +146,10 @@ app.get('/health', async (req, res) => {
   });
 });
 
-// Dashboard redirect
-app.get('/dashboard', (req, res) => res.redirect('/status/dashboard'));
+// Enhanced dashboard (direct serve)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'monitoring-dashboard.html'));
+});
 
 // Root
 app.get('/', (req, res) => {
