@@ -33,6 +33,9 @@ export const {
   getDemoFile,
   getDemoFiles,
   deleteDemoFiles,
+  recordDemoView,
+  getDemoViewStats,
+  getAllDemoViewCounts,
   pool
 } = db;
 

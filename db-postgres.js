@@ -87,6 +87,20 @@ async function initializeDatabase() {
       );
     `);
 
+    // Create demo_views table for link tracking
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS demo_views (
+        id SERIAL PRIMARY KEY,
+        demo_id TEXT NOT NULL,
+        viewed_at TEXT NOT NULL,
+        ip TEXT,
+        user_agent TEXT
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_demo_views_demo_id ON demo_views(demo_id);
+    `);
+
     console.log('✅ PostgreSQL tables initialized');
   } catch (error) {
     console.error('❌ Database initialization failed:', error.message);
@@ -276,6 +290,51 @@ export async function deleteDemoFiles(demoId) {
   const client = await pool.connect();
   try {
     await client.query(`DELETE FROM demo_files WHERE demo_id = $1`, [demoId]);
+  } finally {
+    client.release();
+  }
+}
+
+// --- Demo View Tracking ---
+
+export async function recordDemoView(demoId, ip, userAgent) {
+  const client = await pool.connect();
+  try {
+    await client.query(
+      `INSERT INTO demo_views (demo_id, viewed_at, ip, user_agent) VALUES ($1, $2, $3, $4)`,
+      [demoId, new Date().toISOString(), ip || null, userAgent || null]
+    );
+  } finally {
+    client.release();
+  }
+}
+
+export async function getDemoViewStats(demoId) {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT COUNT(*) as total_views, MIN(viewed_at) as first_viewed, MAX(viewed_at) as last_viewed
+       FROM demo_views WHERE demo_id = $1`,
+      [demoId]
+    );
+    return result.rows[0];
+  } finally {
+    client.release();
+  }
+}
+
+export async function getAllDemoViewCounts() {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT demo_id, COUNT(*) as views, MIN(viewed_at) as first_viewed
+       FROM demo_views GROUP BY demo_id`
+    );
+    const map = {};
+    for (const row of result.rows) {
+      map[row.demo_id] = { views: parseInt(row.views), firstViewed: row.first_viewed };
+    }
+    return map;
   } finally {
     client.release();
   }

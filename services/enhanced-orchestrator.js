@@ -11,6 +11,7 @@ import { deployDemo } from './deployer-postgres.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
 import { sendDemoSMS } from './sms.js';
 import { sendDemoEmail } from './email.js';
+import { addLog } from '../db-hybrid.js';
 
 /**
  * Process demo generation - simplified workflow
@@ -21,19 +22,27 @@ export async function processEnhancedDemo(leadData) {
   const startTime = Date.now();
   const errors = [];
   
+  const jobId = leadData.jobId;
+  const log = async (step, msg) => {
+    if (jobId) { try { await addLog(jobId, step, msg); } catch {} }
+  };
+
   console.log(`[orchestrator] Starting demo for: ${leadData.websiteUrl}`);
-  
+
   try {
     // Step 1: Validate website URL
-    console.log('[orchestrator] Step 1/4: Validating URL...');
+    console.log('[orchestrator] Step 1/6: Validating URL...');
+    await log('step_1_validate', `Validating URL: ${leadData.websiteUrl}`);
     const validation = await validateUrl(leadData.websiteUrl);
     if (!validation.valid) {
       throw new Error(`URL validation failed: ${validation.error}`);
     }
     console.log('✅ URL validated');
+    await log('step_1_validate', '✅ URL is reachable');
 
     // Step 2: Scrape original website with timeout
-    console.log('[orchestrator] Step 2/4: Scraping website...');
+    console.log('[orchestrator] Step 2/6: Scraping website...');
+    await log('step_2_scrape', 'Scraping website with Puppeteer...');
     const scrapePromise = scrapeWebsite(leadData.websiteUrl);
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Scraping timeout after 45 seconds')), 45000)
@@ -43,19 +52,24 @@ export async function processEnhancedDemo(leadData) {
     if (!scrapeResult.success) {
       throw new Error(`Website scraping failed: ${scrapeResult.error}`);
     }
-    console.log(`✅ Website scraped: ${scrapeResult.data.sections?.length || 0} sections found, screenshot: ${scrapeResult.data.screenshot ? 'yes' : 'no'}`);
+    const scrapeInfo = `${scrapeResult.data.headings?.length || 0} headings, ${scrapeResult.data.images?.length || 0} images, ${scrapeResult.data.sections?.length || 0} sections, screenshot: ${scrapeResult.data.screenshot ? 'yes' : 'no'}`;
+    console.log(`✅ Website scraped: ${scrapeInfo}`);
+    await log('step_2_scrape', `✅ Scraped: ${scrapeInfo}`);
 
     // Step 3: Generate enhanced website + analysis (in parallel)
-    console.log('[orchestrator] Step 3/4: Generating enhanced website + analysis...');
+    console.log('[orchestrator] Step 3/6: Generating enhanced website + analysis...');
+    await log('step_3_generate', 'Generating enhanced website with Claude Sonnet 4 (+ site analysis in parallel)...');
     const analysisPromise = generateSiteAnalysis(scrapeResult.data, leadData.websiteUrl);
     const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl, scrapeResult.data.screenshot);
     if (!generationResult.success) {
       throw new Error(`Website generation failed: ${generationResult.error}`);
     }
-    console.log(`✅ Enhanced website generated`);
+    console.log(`✅ Enhanced website generated: ${generationResult.files.html.length} chars`);
+    await log('step_3_generate', `✅ Generated: ${generationResult.files.html.length} chars of HTML`);
 
-    // Step 4: Inject AI Widgets & Deploy
-    console.log('[orchestrator] Step 4/4: Injecting widgets and deploying...');
+    // Step 4: Inject AI Widgets
+    console.log('[orchestrator] Step 4/6: Injecting widgets...');
+    await log('step_4_inject', 'Injecting AI chat + voice widget scripts...');
     
     // Inject widgets
     let enhancedHtml;
@@ -63,18 +77,22 @@ export async function processEnhancedDemo(leadData) {
       enhancedHtml = injectWidgets(generationResult.files.html);
       if (verifyWidgets(enhancedHtml)) {
         console.log('✅ AI widgets injected and verified');
+        await log('step_4_inject', '✅ Widgets injected and verified');
       } else {
         console.error('❌ Widget injection produced output but widgets not found in HTML');
         errors.push('Widget verification failed — scripts may not be present');
+        await log('step_4_inject', '⚠️ Widget verification failed');
       }
     } catch (injectionError) {
       errors.push(`Widget injection warning: ${injectionError.message}`);
       enhancedHtml = generationResult.files.html;
       console.log('⚠️ Proceeding without AI widgets');
+      await log('step_4_inject', `⚠️ Widget injection failed: ${injectionError.message}`);
     }
     console.log(`[orchestrator] HTML length before deploy: ${enhancedHtml.length}, has </body>: ${enhancedHtml.includes('</body>')}, has widget script: ${enhancedHtml.includes('leadconnectorhq')}`);
 
-    // Deploy demo
+    // Step 5: Deploy demo
+    await log('step_5_deploy', 'Deploying demo + downloading images...');
     const slug = generateCompanySlug(leadData.companyName || leadData.name || 'demo');
     const deployResult = await deployDemo(slug, {
       html: enhancedHtml,
@@ -86,6 +104,7 @@ export async function processEnhancedDemo(leadData) {
       throw new Error(`Demo deployment failed: ${deployResult.error}`);
     }
     console.log(`✅ Demo deployed: ${deployResult.demoUrl}`);
+    await log('step_5_deploy', `✅ Demo deployed: ${deployResult.demoUrl}`);
 
     // Resolve site analysis
     let siteAnalysis = null;
@@ -105,7 +124,9 @@ export async function processEnhancedDemo(leadData) {
     const skipNotifications = !leadData.email;
     if (skipNotifications) {
       console.log('[orchestrator] Skipping CRM/SMS/Email (no email — quick demo mode)');
+      await log('step_6_notify', 'Skipped notifications (quick demo mode — no email)');
     } else {
+      await log('step_6_notify', 'Sending CRM update, SMS, and email...');
       try {
         const crmResult = await upsertContactWithDemo({
           name: leadData.name,
@@ -153,6 +174,7 @@ export async function processEnhancedDemo(leadData) {
     // Return success
     const generationTime = Math.round((Date.now() - startTime) / 1000);
     console.log(`[orchestrator] ✅ Demo completed in ${generationTime}s`);
+    await log('completed', `✅ Demo completed in ${generationTime}s — ${deployResult.demoUrl}`);
 
     return {
       success: true,

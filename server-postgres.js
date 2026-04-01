@@ -8,9 +8,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import hybrid database module
-import { 
-  getJobStats, hasFileStorage, backend, 
-  getDemoFile, getDemoFiles 
+import {
+  getJobStats, hasFileStorage, backend,
+  getDemoFile, getDemoFiles, recordDemoView
 } from './db-hybrid.js';
 
 import webhookRouter from './routes/webhook.js';
@@ -48,6 +48,16 @@ app.use('/webhook', webhookRouter);
 app.use('/status', statusRouter);
 app.use('/diagnostic', diagnosticRouter);
 app.use('/api', apiRouter);
+
+// Track demo page views (only for index.html, not assets)
+async function trackView(slug, filePath, req) {
+  if ((!filePath || filePath === 'index.html') && recordDemoView) {
+    try {
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+      await recordDemoView(slug, ip, req.headers['user-agent']);
+    } catch {}
+  }
+}
 
 // Database-based demo serving (PostgreSQL)
 async function serveDemoFromDatabase(slug, filePath, res) {
@@ -88,7 +98,8 @@ function serveDemoFromFiles(slug, filePath, res) {
 app.get('/demo/:slug/*', async (req, res) => {
   const slug = req.params.slug;
   const filePath = req.params[0] || 'index.html';
-  
+  trackView(slug, filePath, req);
+
   if (hasFileStorage) {
     await serveDemoFromDatabase(slug, filePath, res);
   } else {
@@ -99,7 +110,8 @@ app.get('/demo/:slug/*', async (req, res) => {
 // Serve demo index — /demo/:slug (redirect to ensure trailing slash)
 app.get('/demo/:slug', async (req, res) => {
   const slug = req.params.slug;
-  
+  trackView(slug, 'index.html', req);
+
   if (hasFileStorage) {
     // Check if demo exists in database
     try {

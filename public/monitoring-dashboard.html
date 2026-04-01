@@ -339,10 +339,10 @@
       <div class="stat-value c-green" id="completedCount">--</div>
       <div class="stat-sub" id="successRateSub"></div>
     </div>
-    <div class="stat">
+    <div class="stat" style="cursor:pointer;" onclick="showFailureBreakdown()">
       <div class="stat-label">Failed</div>
       <div class="stat-value c-red" id="failedCount">--</div>
-      <div class="stat-sub" id="failedSub"></div>
+      <div class="stat-sub" id="failedSub">Click for details</div>
     </div>
     <div class="stat">
       <div class="stat-label">Active</div>
@@ -358,6 +358,11 @@
       <div class="stat-label">Avg Time</div>
       <div class="stat-value" id="avgTime">--</div>
       <div class="stat-sub">Per demo</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Demo Views</div>
+      <div class="stat-value c-indigo" id="totalViews">--</div>
+      <div class="stat-sub">Link opens</div>
     </div>
   </div>
 
@@ -405,12 +410,13 @@
           <th>Website</th>
           <th>Demo</th>
           <th>Status</th>
+          <th>Views</th>
           <th>Created</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody id="jobsBody">
-        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+        <tr><td colspan="8" class="empty-state">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -428,6 +434,7 @@
 
 <script>
   let allJobs = [];
+  let viewCounts = {}; // { demoSlug: { views, firstViewed } }
   let currentFilter = 'all';
   let eventSource = null;
   let activeQuickJobId = null;
@@ -463,17 +470,21 @@
   // --- Fetch ---
   async function fetchAll() {
     try {
-      const [statsRes, jobsRes] = await Promise.all([fetch('/api/stats'), fetch('/api/jobs')]);
+      const [statsRes, jobsRes, viewsRes] = await Promise.all([
+        fetch('/api/stats'), fetch('/api/jobs'), fetch('/api/stats/views')
+      ]);
       const stats = await statsRes.json();
       const jobs = await jobsRes.json();
-      updateStats(stats);
+      const views = await viewsRes.json();
+      viewCounts = views.demos || {};
+      updateStats(stats, views);
       allJobs = jobs;
       renderJobs();
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
     } catch (err) { console.error('Fetch failed:', err); }
   }
 
-  function updateStats(data) {
+  function updateStats(data, views) {
     const total = parseInt(data.jobs?.total) || 0;
     const completed = parseInt(data.jobs?.completed) || 0;
     const failed = parseInt(data.jobs?.failed) || 0;
@@ -490,6 +501,7 @@
 
     const avg = data.avgGenerationTime || 0;
     document.getElementById('avgTime').textContent = avg > 0 ? `${avg}s` : '--';
+    document.getElementById('totalViews').textContent = views?.total ?? '--';
   }
 
   // --- Jobs Table ---
@@ -500,7 +512,7 @@
 
     const tbody = document.getElementById('jobsBody');
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No jobs found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No jobs found</td></tr>';
       return;
     }
 
@@ -513,12 +525,19 @@
       const badge = status.includes('processing') ? 'processing' : status;
       const created = job.created_at ? new Date(job.created_at).toLocaleString() : '-';
 
+      // Get view count for this demo
+      const slug = job.demo_url ? job.demo_url.split('/demo/').pop()?.replace(/\/$/, '') : null;
+      const viewData = slug ? viewCounts[slug] : null;
+      const viewCount = viewData?.views || 0;
+      const firstViewed = viewData?.firstViewed ? timeAgo(viewData.firstViewed) : '';
+
       return `<tr>
         <td><a href="javascript:void(0)" onclick="showJobDetail('${job.id}')">${id}...</a></td>
         <td>${esc(company)}</td>
         <td class="url-cell">${url !== '-' ? `<a href="${esc(url)}" target="_blank">${esc(urlShort)}</a>` : '-'}</td>
         <td>${job.demo_url ? `<a href="${esc(job.demo_url)}" target="_blank">View Demo</a>` : '-'}</td>
         <td><span class="badge badge-${badge}">${status}</span></td>
+        <td>${viewCount > 0 ? `<span style="font-weight:600;">${viewCount}</span> <span style="color:#9ca3af;font-size:11px;">${firstViewed}</span>` : '-'}</td>
         <td>${created}</td>
         <td>
           ${status === 'failed' ? `<button class="action-btn retry" onclick="retryJob('${job.id}')">Retry</button>` : ''}
@@ -692,7 +711,37 @@
     setTimeout(() => t.remove(), 4000);
   }
 
+  // --- Failure Breakdown ---
+  async function showFailureBreakdown() {
+    document.getElementById('modalOverlay').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Failure Breakdown';
+    document.getElementById('modalContent').innerHTML = 'Loading...';
+    try {
+      const res = await fetch('/api/stats/failures');
+      const failures = await res.json();
+      if (!failures.length) {
+        document.getElementById('modalContent').innerHTML = '<div style="color:#9ca3af;text-align:center;padding:20px;">No failures recorded</div>';
+        return;
+      }
+      let html = '<table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:8px 12px;font-size:11px;color:#9ca3af;border-bottom:1px solid #f3f4f6;">ERROR</th><th style="text-align:right;padding:8px 12px;font-size:11px;color:#9ca3af;border-bottom:1px solid #f3f4f6;">COUNT</th></tr></thead><tbody>';
+      for (const f of failures) {
+        html += `<tr><td style="padding:8px 12px;font-size:12px;color:#dc2626;border-bottom:1px solid #f3f4f6;word-break:break-all;">${esc(f.error)}</td><td style="padding:8px 12px;font-size:14px;font-weight:700;text-align:right;border-bottom:1px solid #f3f4f6;">${f.count}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      document.getElementById('modalContent').innerHTML = html;
+    } catch { document.getElementById('modalContent').innerHTML = '<div class="result-error">Failed to load</div>'; }
+  }
+
   // --- Helpers ---
+  function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
   function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   // --- Init ---

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { getAllJobs, getJobStats, getJob, getJobLogs, retryJob, deleteDemoFiles, createJob, addLog, pool, hasFileStorage } from '../db-hybrid.js';
+import { getAllJobs, getJobStats, getJob, getJobLogs, retryJob, deleteDemoFiles, createJob, addLog, getAllDemoViewCounts, pool, hasFileStorage } from '../db-hybrid.js';
 
 const router = Router();
 
@@ -37,12 +37,12 @@ router.get('/stats', async (req, res) => {
         const client = await pool.connect();
         try {
           const todayResult = await client.query(
-            `SELECT COUNT(*) as count FROM jobs WHERE status = 'completed' AND created_at >= (NOW() - INTERVAL '24 hours')`
+            `SELECT COUNT(*) as count FROM jobs WHERE status = 'completed' AND created_at::timestamptz >= (NOW() - INTERVAL '24 hours')`
           );
           todayCompleted = parseInt(todayResult.rows[0]?.count) || 0;
 
           const avgResult = await client.query(
-            `SELECT AVG(EXTRACT(EPOCH FROM (updated_at::timestamp - created_at::timestamp))) as avg_seconds
+            `SELECT AVG(EXTRACT(EPOCH FROM (updated_at::timestamptz - created_at::timestamptz))) as avg_seconds
              FROM jobs WHERE status = 'completed'`
           );
           avgGenerationTime = Math.round(parseFloat(avgResult.rows[0]?.avg_seconds) || 0);
@@ -129,6 +129,46 @@ router.delete('/jobs/:jobId/demo', async (req, res) => {
   } catch (error) {
     console.error('Failed to delete demo:', error);
     res.status(500).json({ error: 'Failed to delete demo' });
+  }
+});
+
+/**
+ * GET /api/stats/failures
+ * Returns failure breakdown — error messages grouped by frequency
+ */
+router.get('/stats/failures', async (req, res) => {
+  try {
+    if (!pool) return res.json([]);
+    const client = await pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT error_message as error, COUNT(*) as count
+        FROM jobs WHERE status = 'failed' AND error_message IS NOT NULL
+        GROUP BY error_message ORDER BY count DESC
+      `);
+      res.json(result.rows);
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Failed to fetch failure stats:', error);
+    res.status(500).json({ error: 'Failed to fetch failure stats' });
+  }
+});
+
+/**
+ * GET /api/stats/views
+ * Returns view counts for all demos + total
+ */
+router.get('/stats/views', async (req, res) => {
+  try {
+    if (!getAllDemoViewCounts) return res.json({ total: 0, demos: {} });
+    const demos = await getAllDemoViewCounts();
+    const total = Object.values(demos).reduce((sum, d) => sum + d.views, 0);
+    res.json({ total, demos });
+  } catch (error) {
+    console.error('Failed to fetch view stats:', error);
+    res.status(500).json({ error: 'Failed to fetch view stats' });
   }
 });
 
