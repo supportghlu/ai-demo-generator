@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { join } from 'path';
 import { getJob, getJobLogs, getAllJobs, getJobStats } from '../db-hybrid.js';
 
 const router = Router();
@@ -32,9 +33,17 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /dashboard
+ * Enhanced monitoring dashboard
+ */
+router.get('/dashboard', (req, res) => {
+  res.sendFile(join(process.cwd(), 'public', 'monitoring-dashboard.html'));
+});
+
+/**
+ * GET /dashboard/simple
  * Simple HTML dashboard for monitoring
  */
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard/simple', async (req, res) => {
   const jobs = await getAllJobs();
   const stats = await getJobStats();
 

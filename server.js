@@ -9,6 +9,7 @@ dotenv.config();
 import webhookRouter from './routes/webhook.js';
 import statusRouter from './routes/status.js';
 import diagnosticRouter from './routes/diagnostic.js';
+import apiRouter from './routes/api.js';
 import { startEnhancedProcessor, getProcessorStats } from './queue/enhanced-processor.js';
 import { getJobStats } from './db.js';
 
@@ -33,10 +34,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Static files
+app.use(express.static(join(__dirname, 'public')));
+
 // Routes
 app.use('/webhook', webhookRouter);
 app.use('/status', statusRouter);
 app.use('/diagnostic', diagnosticRouter);
+app.use('/api', apiRouter);
 
 // Serve demo sites — /demo/:slug/file serves static files
 app.get('/demo/:slug/*', (req, res) => {

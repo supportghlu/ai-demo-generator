@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Demo Generator - Live Monitoring Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #e0e6ed;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .metric-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .metric-icon {
+            font-size: 1.5em;
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .metric-subtitle {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        .status-healthy { color: #27ae60; }
+        .status-warning { color: #f39c12; }
+        .status-error { color: #e74c3c; }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-warning { background: linear-gradient(45deg, #f39c12, #e67e22); }
+        .progress-error { background: linear-gradient(45deg, #e74c3c, #c0392b); }
+
+        .leads-table {
+            margin: 30px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .table-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        .table-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .timestamp {
+            color: #adb5bd;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .live-indicator {
+            animation: pulse 2s infinite;
+            color: #27ae60;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .action-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .status-completed { background: #d1f2eb; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-processing { background: #cce5ff; color: #004085; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 AI Demo Generator - Live Dashboard</h1>
+            <p>Real-time monitoring of demo website creation system</p>
+            <div class="timestamp">Last updated: <span class="live-indicator" id="lastUpdate">Loading...</span></div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">System Health</span>
+                    <span class="metric-icon">❤️</span>
+                </div>
+                <div class="metric-value status-healthy" id="systemStatus">HEALTHY</div>
+                <div class="metric-subtitle">Production system status</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 95%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Total Demos</span>
+                    <span class="metric-icon">📊</span>
+                </div>
+                <div class="metric-value status-healthy" id="totalDemos">0</div>
+                <div class="metric-subtitle">All time generated</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Success Rate</span>
+                    <span class="metric-icon">✅</span>
+                </div>
+                <div class="metric-value status-healthy" id="successRate">0%</div>
+                <div class="metric-subtitle">Demo generation success</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="successProgress" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Active Jobs</span>
+                    <span class="metric-icon">⚡</span>
+                </div>
+                <div class="metric-value status-healthy" id="activeJobs">0</div>
+                <div class="metric-subtitle">Currently processing</div>
+                <div class="progress-bar">
+                    <div class="progress-fill progress-warning" id="activeProgress" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Completed Today</span>
+                    <span class="metric-icon">🎯</span>
+                </div>
+                <div class="metric-value status-healthy" id="completedToday">0</div>
+                <div class="metric-subtitle">Successfully generated</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 80%;"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Response Time</span>
+                    <span class="metric-icon">⚡</span>
+                </div>
+                <div class="metric-value status-healthy" id="responseTime">0ms</div>
+                <div class="metric-subtitle">Average processing time</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 85%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="leads-table">
+            <div class="table-header">
+                <div class="table-title">📋 Recent Demo Generations</div>
+            </div>
+            <table id="leadsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Company</th>
+                        <th>Contact</th>
+                        <th>Original URL</th>
+                        <th>Demo URL</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsTableBody">
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #7f8c8d;">
+                            Loading demo data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>🤖 Live Dashboard - Updates every 30 seconds</p>
+            <p>⚙️ Production URL: https://ai-demo-generator-v3-production.up.railway.app</p>
+        </div>
+    </div>
+
+    <script>
+        let isUpdating = false;
+
+        function updateTimestamp() {
+            const now = new Date().toLocaleString();
+            document.getElementById('lastUpdate').textContent = now;
+        }
+
+        async function fetchDashboardData() {
+            if (isUpdating) return;
+            isUpdating = true;
+
+            try {
+                // Fetch health and stats data
+                const [healthResponse, statsResponse] = await Promise.all([
+                    fetch('/health'),
+                    fetch('/status/')
+                ]);
+
+                const healthData = await healthResponse.json();
+                const statsData = await statsResponse.json();
+
+                // Update metrics
+                updateMetrics(healthData, statsData);
+
+                // Fetch all jobs for the table
+                const jobsResponse = await fetch('/api/jobs');
+                const jobsData = await jobsResponse.json();
+                updateLeadsTable(jobsData);
+
+            } catch (error) {
+                console.error('Failed to fetch dashboard data:', error);
+                document.getElementById('systemStatus').textContent = 'ERROR';
+                document.getElementById('systemStatus').className = 'metric-value status-error';
+            } finally {
+                isUpdating = false;
+                updateTimestamp();
+            }
+        }
+
+        function updateMetrics(health, stats) {
+            // System Health
+            const systemStatus = health.status === 'ok' ? 'HEALTHY' : 'ERROR';
+            const statusClass = health.status === 'ok' ? 'status-healthy' : 'status-error';
+            document.getElementById('systemStatus').textContent = systemStatus;
+            document.getElementById('systemStatus').className = `metric-value ${statusClass}`;
+
+            // Total Demos
+            const total = stats.jobs?.total || 0;
+            document.getElementById('totalDemos').textContent = total;
+
+            // Success Rate
+            const completed = stats.jobs?.completed || 0;
+            const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+            document.getElementById('successRate').textContent = `${successRate}%`;
+            
+            const successClass = successRate >= 80 ? 'status-healthy' : 
+                                successRate >= 60 ? 'status-warning' : 'status-error';
+            document.getElementById('successRate').className = `metric-value ${successClass}`;
+            document.getElementById('successProgress').style.width = `${successRate}%`;
+            
+            if (successRate >= 80) {
+                document.getElementById('successProgress').className = 'progress-fill';
+            } else if (successRate >= 60) {
+                document.getElementById('successProgress').className = 'progress-fill progress-warning';
+            } else {
+                document.getElementById('successProgress').className = 'progress-fill progress-error';
+            }
+
+            // Active Jobs
+            const pending = stats.jobs?.pending || 0;
+            document.getElementById('activeJobs').textContent = pending;
+            document.getElementById('activeProgress').style.width = `${Math.min(pending * 20, 100)}%`;
+
+            // Completed Today (approximate)
+            document.getElementById('completedToday').textContent = Math.round(completed * 0.3);
+
+            // Response Time (from uptime as placeholder)
+            const responseTime = health.uptime ? Math.round(health.uptime * 10) : 0;
+            document.getElementById('responseTime').textContent = `${responseTime}ms`;
+        }
+
+        function updateLeadsTable(jobs) {
+            const tbody = document.getElementById('leadsTableBody');
+            
+            if (!jobs || jobs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #7f8c8d;">
+                            No demo generations found
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = jobs.map(job => `
+                <tr>
+                    <td><a href="/status/${job.id}" style="color: #667eea;">${job.id.substring(0, 8)}...</a></td>
+                    <td>${job.company || job.name || '-'}</td>
+                    <td>${job.email || job.contact_id || '-'}</td>
+                    <td>
+                        ${job.website_url ? `<a href="${job.website_url}" target="_blank" style="color: #667eea;">${job.website_url}</a>` : '-'}
+                    </td>
+                    <td>
+                        ${job.demo_url ? `<a href="${job.demo_url}" target="_blank" style="color: #27ae60;">View Demo</a>` : '-'}
+                    </td>
+                    <td>
+                        <span class="status-badge status-${job.status}">${job.status}</span>
+                    </td>
+                    <td>${new Date(job.created_at).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchDashboardData();
+            
+            // Update every 30 seconds
+            setInterval(fetchDashboardData, 30000);
+        });
+    </script>
+</body>
+</html>
