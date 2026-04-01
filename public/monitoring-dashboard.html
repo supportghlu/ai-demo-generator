@@ -370,8 +370,13 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title">Quick Demo Generator</span>
+      <div class="filters">
+        <button class="filter-btn active" data-mode="has-website" onclick="setDemoMode('has-website', this)">Has a website</button>
+        <button class="filter-btn" data-mode="no-website" onclick="setDemoMode('no-website', this)">Needs a website</button>
+      </div>
     </div>
-    <div class="quick-form">
+    <!-- Has website form -->
+    <div class="quick-form" id="websiteForm">
       <div class="field">
         <label>Website URL</label>
         <input type="text" id="tryUrl" placeholder="https://example.com" />
@@ -381,6 +386,26 @@
         <input type="text" id="tryCompany" placeholder="Company name" />
       </div>
       <button class="btn-primary" id="generateBtn" onclick="generateQuickDemo()">Generate Demo</button>
+    </div>
+    <!-- No website form -->
+    <div class="quick-form" id="noWebsiteForm" style="display:none;">
+      <div class="field sm">
+        <label>Business Type *</label>
+        <input type="text" id="tryBusinessType" placeholder="e.g. plumber, salon, restaurant" />
+      </div>
+      <div class="field sm">
+        <label>Location *</label>
+        <input type="text" id="tryLocation" placeholder="e.g. Manchester, UK" />
+      </div>
+      <div class="field sm">
+        <label>Ideal Customers</label>
+        <input type="text" id="tryCustomers" placeholder="e.g. homeowners, young professionals" />
+      </div>
+      <div class="field sm">
+        <label>Company Name</label>
+        <input type="text" id="tryCompanyNoWeb" placeholder="Company name" />
+      </div>
+      <button class="btn-primary" id="generateBtnNoWeb" onclick="generateQuickDemo()">Generate Website</button>
     </div>
     <div class="progress-section" id="tryProgress">
       <div class="progress-track">
@@ -434,10 +459,19 @@
 
 <script>
   let allJobs = [];
-  let viewCounts = {}; // { demoSlug: { views, firstViewed } }
+  let viewCounts = {};
   let currentFilter = 'all';
+  let demoMode = 'has-website';
   let eventSource = null;
   let activeQuickJobId = null;
+
+  function setDemoMode(mode, btn) {
+    demoMode = mode;
+    document.querySelectorAll('.card-header .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('websiteForm').style.display = mode === 'has-website' ? 'flex' : 'none';
+    document.getElementById('noWebsiteForm').style.display = mode === 'no-website' ? 'flex' : 'none';
+  }
 
   // --- SSE ---
   function connectSSE() {
@@ -579,10 +613,34 @@
 
   // --- Quick Demo ---
   async function generateQuickDemo() {
-    const url = document.getElementById('tryUrl').value.trim();
-    if (!url) { document.getElementById('tryUrl').focus(); return; }
-    const company = document.getElementById('tryCompany').value.trim();
-    const btn = document.getElementById('generateBtn');
+    let payload;
+    let btn;
+
+    if (demoMode === 'has-website') {
+      const url = document.getElementById('tryUrl').value.trim();
+      if (!url) { document.getElementById('tryUrl').focus(); return; }
+      payload = {
+        website_url: url,
+        company_name: document.getElementById('tryCompany').value.trim() || undefined,
+        has_website: true
+      };
+      btn = document.getElementById('generateBtn');
+    } else {
+      const businessType = document.getElementById('tryBusinessType').value.trim();
+      const location = document.getElementById('tryLocation').value.trim();
+      if (!businessType) { document.getElementById('tryBusinessType').focus(); return; }
+      if (!location) { document.getElementById('tryLocation').focus(); return; }
+      payload = {
+        has_website: false,
+        business_type: businessType,
+        location: location,
+        ideal_customers: document.getElementById('tryCustomers').value.trim() || undefined,
+        company_name: document.getElementById('tryCompanyNoWeb').value.trim() || undefined
+      };
+      btn = document.getElementById('generateBtnNoWeb');
+    }
+
+    const company = payload.company_name;
     const progress = document.getElementById('tryProgress');
     const result = document.getElementById('tryResult');
 
@@ -598,7 +656,7 @@
       const res = await fetch('/api/demo/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ website_url: url, company_name: company || undefined })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed');

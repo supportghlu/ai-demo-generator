@@ -101,6 +101,18 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_demo_views_demo_id ON demo_views(demo_id);
     `);
 
+    // Add no-website flow columns (safe — IF NOT EXISTS)
+    const newCols = [
+      ['has_website', 'BOOLEAN DEFAULT TRUE'],
+      ['business_type', 'TEXT'],
+      ['location', 'TEXT'],
+      ['ideal_customers', 'TEXT'],
+      ['services_offered', 'TEXT']
+    ];
+    for (const [col, type] of newCols) {
+      await client.query(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ${col} ${type}`).catch(() => {});
+    }
+
     console.log('✅ PostgreSQL tables initialized');
   } catch (error) {
     console.error('❌ Database initialization failed:', error.message);
@@ -111,15 +123,18 @@ async function initializeDatabase() {
 }
 
 // Database operations
-export async function createJob(id, name, email, phone, websiteUrl, contactId = null, companyName = null) {
+export async function createJob(id, name, email, phone, websiteUrl, contactId = null, companyName = null, extras = {}) {
   const now = new Date().toISOString();
   const client = await pool.connect();
   try {
     await client.query(`
-      INSERT INTO jobs (id, name, email, phone, website_url, contact_id, company_name, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'queued', $8, $9)
-    `, [id, name, email, phone, websiteUrl, contactId, companyName, now, now]);
-    
+      INSERT INTO jobs (id, name, email, phone, website_url, contact_id, company_name, status, created_at, updated_at,
+        has_website, business_type, location, ideal_customers, services_offered)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'queued', $8, $9, $10, $11, $12, $13, $14)
+    `, [id, name, email, phone, websiteUrl, contactId, companyName, now, now,
+        extras.hasWebsite ?? true, extras.businessType || null, extras.location || null,
+        extras.idealCustomers || null, extras.servicesOffered || null]);
+
     const result = await client.query('SELECT * FROM jobs WHERE id = $1', [id]);
     return result.rows[0];
   } finally {

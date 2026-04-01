@@ -43,32 +43,51 @@ router.post('/demo-request', async (req, res) => {
       || body.id
       || null;
 
-    const companyName = body.company_name 
-      || body.companyName 
+    const companyName = body.company_name
+      || body.companyName
       || body.company
       || null;
 
-    // Validate required fields
-    if (!websiteUrl) {
-      console.log('[webhook] Rejected: no website URL provided');
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'website_url is required' 
+    // No-website flow fields
+    const businessType = body.business_type || body.businessType || body.customData?.business_type || null;
+    const location = body.location || body.city || body.customData?.location || null;
+    const idealCustomers = body.ideal_customers || body.idealCustomers || body.customData?.ideal_customers || null;
+    const servicesOffered = body.services_offered || body.servicesOffered || body.customData?.services_offered || null;
+
+    // Determine flow: has website or no website
+    const hasWebsite = (body.has_website !== false && body.has_website !== 'false') && !!websiteUrl;
+
+    // Validate: need either website_url OR (business_type + location)
+    if (!hasWebsite && !businessType) {
+      console.log('[webhook] Rejected: no website URL and no business type');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Provide website_url or business_type + location'
       });
     }
 
-    // Normalize URL
-    let normalizedUrl = websiteUrl.trim();
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = 'https://' + normalizedUrl;
+    // Normalize URL if present
+    let normalizedUrl = null;
+    if (websiteUrl) {
+      normalizedUrl = websiteUrl.trim();
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
     }
 
     // Create job with additional data for enhanced processing
     const jobId = uuidv4();
-    const job = await createJob(jobId, name, email, phone, normalizedUrl, contactId, companyName);
-    await addLog(jobId, 'created', `Job created for ${normalizedUrl} (${name}, ${email}) - Contact ID: ${contactId || 'none'}`);
+    const job = await createJob(jobId, name, email, phone, normalizedUrl, contactId, companyName, {
+      hasWebsite,
+      businessType,
+      location,
+      idealCustomers,
+      servicesOffered
+    });
+    const flowType = hasWebsite ? 'website improvement' : 'new website (no-website flow)';
+    await addLog(jobId, 'created', `Job created: ${flowType} — ${normalizedUrl || `${businessType} in ${location}`} (${name}, ${email}) - Contact ID: ${contactId || 'none'}`);
 
-    console.log(`[webhook] Job ${jobId} created for ${normalizedUrl} - Contact ID: ${contactId || 'none'}`);
+    console.log(`[webhook] Job ${jobId} created (${flowType}) for ${normalizedUrl || `${businessType} in ${location}`} - Contact ID: ${contactId || 'none'}`);
 
     res.status(200).json({
       status: 'queued',

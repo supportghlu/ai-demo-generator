@@ -178,23 +178,35 @@ router.get('/stats/views', async (req, res) => {
  */
 router.post('/demo/generate', async (req, res) => {
   try {
-    const { website_url, company_name } = req.body;
+    const { website_url, company_name, has_website, business_type, location, ideal_customers, services_offered } = req.body;
 
-    if (!website_url) {
-      return res.status(400).json({ error: 'website_url is required' });
+    const hasWebsite = has_website !== false && !!website_url;
+
+    if (!hasWebsite && !business_type) {
+      return res.status(400).json({ error: 'Provide website_url or business_type + location' });
     }
 
-    let normalizedUrl = website_url.trim();
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = 'https://' + normalizedUrl;
+    let normalizedUrl = null;
+    if (website_url) {
+      normalizedUrl = website_url.trim();
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
     }
 
     const jobId = uuidv4();
-    // No email/phone/contactId — orchestrator will skip notifications
-    await createJob(jobId, company_name || 'Quick Demo', null, null, normalizedUrl, null, company_name || null);
-    await addLog(jobId, 'created', `Quick demo from dashboard for ${normalizedUrl}`);
+    const jobName = company_name || business_type || 'Quick Demo';
+    await createJob(jobId, jobName, null, null, normalizedUrl, null, company_name || null, {
+      hasWebsite,
+      businessType: business_type || null,
+      location: location || null,
+      idealCustomers: ideal_customers || null,
+      servicesOffered: services_offered || null
+    });
 
-    console.log(`[api] Quick demo job ${jobId} created for ${normalizedUrl}`);
+    const desc = hasWebsite ? normalizedUrl : `${business_type} in ${location}`;
+    await addLog(jobId, 'created', `Quick demo from dashboard: ${desc}`);
+    console.log(`[api] Quick demo job ${jobId} created: ${desc}`);
     broadcastSSE({ type: 'job_created', jobId });
 
     res.json({ success: true, jobId });

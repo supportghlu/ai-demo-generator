@@ -1,11 +1,15 @@
 /**
  * Demo Generation Orchestrator
- * Simplified workflow: Scrape → Generate → Inject → Deploy
+ * Two paths:
+ *   A) Has website → Scrape → Generate improved version
+ *   B) No website  → Research competitors → Generate from scratch
+ * Both converge at: Inject widgets → Deploy → Notify
  */
 
 import { validateUrl } from './validator.js';
 import { scrapeWebsite } from './scraper.js';
-import { generateWebsite, generateSiteAnalysis } from './ai-generator.js';
+import { generateWebsite, generateSiteAnalysis, generateWebsiteFromScratch, generateCompetitorAnalysis } from './ai-generator.js';
+import { findAndScrapeCompetitors } from './competitor-research.js';
 import { injectWidgets, verifyWidgets } from './injector.js';
 import { deployDemo } from './deployer-postgres.js';
 import { updateContact, upsertContactWithDemo } from './ghl.js';
@@ -14,113 +18,169 @@ import { sendDemoEmail } from './email.js';
 import { addLog } from '../db-hybrid.js';
 
 /**
- * Process demo generation - simplified workflow
+ * Process demo generation — branches based on hasWebsite flag
  * @param {object} leadData - Lead submission data
  * @returns {Promise<{success: boolean, demoUrl?: string, analysis?: object, errors?: array}>}
  */
 export async function processEnhancedDemo(leadData) {
   const startTime = Date.now();
   const errors = [];
-  
+  const hasWebsite = leadData.hasWebsite !== false && !!leadData.websiteUrl;
+  const flowType = hasWebsite ? 'website-improvement' : 'no-website';
+
   const jobId = leadData.jobId;
   const log = async (step, msg) => {
     if (jobId) { try { await addLog(jobId, step, msg); } catch {} }
   };
 
-  console.log(`[orchestrator] Starting demo for: ${leadData.websiteUrl}`);
+  console.log(`[orchestrator] Starting demo (${flowType}) for: ${leadData.websiteUrl || `${leadData.businessType} in ${leadData.location}`}`);
 
   try {
-    // Step 1: Validate website URL
-    console.log('[orchestrator] Step 1/6: Validating URL...');
-    await log('step_1_validate', `Validating URL: ${leadData.websiteUrl}`);
-    const validation = await validateUrl(leadData.websiteUrl);
-    if (!validation.valid) {
-      throw new Error(`URL validation failed: ${validation.error}`);
-    }
-    console.log('✅ URL validated');
-    await log('step_1_validate', '✅ URL is reachable');
+    let generatedHtml;
+    let siteAnalysis = null;
 
-    // Step 2: Scrape original website with timeout
-    console.log('[orchestrator] Step 2/6: Scraping website...');
-    await log('step_2_scrape', 'Scraping website with Puppeteer...');
-    const scrapePromise = scrapeWebsite(leadData.websiteUrl);
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Scraping timeout after 45 seconds')), 45000)
-    );
-    
-    const scrapeResult = await Promise.race([scrapePromise, timeoutPromise]);
-    if (!scrapeResult.success) {
-      throw new Error(`Website scraping failed: ${scrapeResult.error}`);
-    }
-    const scrapeInfo = `${scrapeResult.data.headings?.length || 0} headings, ${scrapeResult.data.images?.length || 0} images, ${scrapeResult.data.sections?.length || 0} sections, screenshot: ${scrapeResult.data.screenshot ? 'yes' : 'no'}`;
-    console.log(`✅ Website scraped: ${scrapeInfo}`);
-    await log('step_2_scrape', `✅ Scraped: ${scrapeInfo}`);
+    if (hasWebsite) {
+      // ============================
+      // PATH A: Has Website
+      // ============================
 
-    // Step 3: Generate enhanced website + analysis (in parallel)
-    console.log('[orchestrator] Step 3/6: Generating enhanced website + analysis...');
-    await log('step_3_generate', 'Generating enhanced website with Claude Sonnet 4 (+ site analysis in parallel)...');
-    const analysisPromise = generateSiteAnalysis(scrapeResult.data, leadData.websiteUrl);
-    const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl, scrapeResult.data.screenshot);
-    if (!generationResult.success) {
-      throw new Error(`Website generation failed: ${generationResult.error}`);
+      // Step 1: Validate URL
+      console.log('[orchestrator] Step 1/6: Validating URL...');
+      await log('step_1_validate', `Validating URL: ${leadData.websiteUrl}`);
+      const validation = await validateUrl(leadData.websiteUrl);
+      if (!validation.valid) throw new Error(`URL validation failed: ${validation.error}`);
+      console.log('✅ URL validated');
+      await log('step_1_validate', '✅ URL is reachable');
+
+      // Step 2: Scrape their website
+      console.log('[orchestrator] Step 2/6: Scraping website...');
+      await log('step_2_scrape', 'Scraping website with Puppeteer...');
+      const scrapeResult = await Promise.race([
+        scrapeWebsite(leadData.websiteUrl),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Scraping timeout after 45 seconds')), 45000))
+      ]);
+      if (!scrapeResult.success) throw new Error(`Website scraping failed: ${scrapeResult.error}`);
+
+      const scrapeInfo = `${scrapeResult.data.headings?.length || 0} headings, ${scrapeResult.data.images?.length || 0} images, ${scrapeResult.data.sections?.length || 0} sections, screenshot: ${scrapeResult.data.screenshot ? 'yes' : 'no'}`;
+      console.log(`✅ Website scraped: ${scrapeInfo}`);
+      await log('step_2_scrape', `✅ Scraped: ${scrapeInfo}`);
+
+      // Step 3: Generate improved website + analysis
+      console.log('[orchestrator] Step 3/6: Generating enhanced website...');
+      await log('step_3_generate', 'Generating enhanced website with Claude Sonnet 4 (+ site analysis in parallel)...');
+      const analysisPromise = generateSiteAnalysis(scrapeResult.data, leadData.websiteUrl);
+      const generationResult = await generateWebsite(scrapeResult.data, leadData.websiteUrl, scrapeResult.data.screenshot);
+      if (!generationResult.success) throw new Error(`Website generation failed: ${generationResult.error}`);
+
+      console.log(`✅ Enhanced website generated: ${generationResult.files.html.length} chars`);
+      await log('step_3_generate', `✅ Generated: ${generationResult.files.html.length} chars of HTML`);
+      generatedHtml = generationResult.files.html;
+
+      // Resolve analysis
+      try {
+        const analysisResult = await analysisPromise;
+        if (analysisResult.success) siteAnalysis = analysisResult.analysis;
+      } catch (e) {
+        console.log(`⚠️ Site analysis failed: ${e.message}`);
+      }
+
+    } else {
+      // ============================
+      // PATH B: No Website
+      // ============================
+
+      const businessDesc = `${leadData.businessType} in ${leadData.location}`;
+
+      // Step 1: Validate inputs
+      console.log('[orchestrator] Step 1/6: Validating business info...');
+      await log('step_1_validate', `No-website flow: ${businessDesc}`);
+      if (!leadData.businessType) throw new Error('Business type is required for no-website flow');
+      if (!leadData.location) throw new Error('Location is required for no-website flow');
+      await log('step_1_validate', `✅ Business info valid: ${businessDesc}`);
+
+      // Step 2: Research competitors
+      console.log(`[orchestrator] Step 2/6: Researching competitors for ${businessDesc}...`);
+      await log('step_2_research', `Searching Google for competitors: "${businessDesc}"...`);
+      const research = await findAndScrapeCompetitors(leadData.businessType, leadData.location);
+      const compCount = research.competitors.length;
+      console.log(`✅ Competitor research: ${compCount} competitors found and scraped`);
+      await log('step_2_research', `✅ Found and scraped ${compCount} competitor websites`);
+
+      // Step 3: Generate website from scratch
+      console.log('[orchestrator] Step 3/6: Generating new website from scratch...');
+      await log('step_3_generate', `Generating new website for ${businessDesc} with Claude Sonnet 4...`);
+
+      const businessInfo = {
+        businessType: leadData.businessType,
+        businessName: leadData.companyName || leadData.name,
+        location: leadData.location,
+        idealCustomers: leadData.idealCustomers,
+        servicesOffered: leadData.servicesOffered
+      };
+
+      // Use best competitor's screenshot as visual reference
+      const bestScreenshot = research.competitors.find(c => c.screenshot)?.screenshot || null;
+
+      // Generate website + competitor analysis in parallel
+      const analysisPromise = generateCompetitorAnalysis(businessInfo, research.competitors);
+      const generationResult = await generateWebsiteFromScratch(businessInfo, research.competitors, bestScreenshot);
+      if (!generationResult.success) throw new Error(`Website generation failed: ${generationResult.error}`);
+
+      console.log(`✅ New website generated: ${generationResult.files.html.length} chars`);
+      await log('step_3_generate', `✅ Generated: ${generationResult.files.html.length} chars of HTML`);
+      generatedHtml = generationResult.files.html;
+
+      // Resolve competitor analysis
+      try {
+        const analysisResult = await analysisPromise;
+        if (analysisResult.success) siteAnalysis = analysisResult.analysis;
+      } catch (e) {
+        console.log(`⚠️ Competitor analysis failed: ${e.message}`);
+      }
     }
-    console.log(`✅ Enhanced website generated: ${generationResult.files.html.length} chars`);
-    await log('step_3_generate', `✅ Generated: ${generationResult.files.html.length} chars of HTML`);
+
+    // ============================
+    // SHARED: Inject → Deploy → Notify
+    // ============================
 
     // Step 4: Inject AI Widgets
     console.log('[orchestrator] Step 4/6: Injecting widgets...');
     await log('step_4_inject', 'Injecting AI chat + voice widget scripts...');
-    
-    // Inject widgets
     let enhancedHtml;
     try {
-      enhancedHtml = injectWidgets(generationResult.files.html);
+      enhancedHtml = injectWidgets(generatedHtml);
       if (verifyWidgets(enhancedHtml)) {
         console.log('✅ AI widgets injected and verified');
         await log('step_4_inject', '✅ Widgets injected and verified');
       } else {
-        console.error('❌ Widget injection produced output but widgets not found in HTML');
-        errors.push('Widget verification failed — scripts may not be present');
+        errors.push('Widget verification failed');
         await log('step_4_inject', '⚠️ Widget verification failed');
       }
     } catch (injectionError) {
       errors.push(`Widget injection warning: ${injectionError.message}`);
-      enhancedHtml = generationResult.files.html;
-      console.log('⚠️ Proceeding without AI widgets');
+      enhancedHtml = generatedHtml;
       await log('step_4_inject', `⚠️ Widget injection failed: ${injectionError.message}`);
     }
-    console.log(`[orchestrator] HTML length before deploy: ${enhancedHtml.length}, has </body>: ${enhancedHtml.includes('</body>')}, has widget script: ${enhancedHtml.includes('leadconnectorhq')}`);
 
-    // Step 5: Deploy demo
+    // Step 5: Deploy
     await log('step_5_deploy', 'Deploying demo + downloading images...');
-    const slug = generateCompanySlug(leadData.companyName || leadData.name || 'demo');
+    const slug = generateCompanySlug(leadData.companyName || leadData.name || leadData.businessType || 'demo');
     const deployResult = await deployDemo(slug, {
       html: enhancedHtml,
-      css: generationResult.files.css || '',
-      js: generationResult.files.js || ''
+      css: '',
+      js: ''
     });
-
-    if (!deployResult.success) {
-      throw new Error(`Demo deployment failed: ${deployResult.error}`);
-    }
+    if (!deployResult.success) throw new Error(`Demo deployment failed: ${deployResult.error}`);
     console.log(`✅ Demo deployed: ${deployResult.demoUrl}`);
     await log('step_5_deploy', `✅ Demo deployed: ${deployResult.demoUrl}`);
 
-    // Resolve site analysis
-    let siteAnalysis = null;
-    try {
-      const analysisResult = await analysisPromise;
-      if (analysisResult.success) {
-        siteAnalysis = analysisResult.analysis;
-        console.log(`✅ Site analysis: ${siteAnalysis.issues?.length} issues, ${siteAnalysis.improvements?.length} improvements`);
-      } else {
-        console.log(`⚠️ Site analysis failed: ${analysisResult.error}`);
-      }
-    } catch (analysisErr) {
-      console.log(`⚠️ Site analysis error: ${analysisErr.message}`);
+    // Log analysis results
+    if (siteAnalysis) {
+      const analysisType = hasWebsite ? 'Site analysis' : 'Competitor analysis';
+      console.log(`✅ ${analysisType}: ${siteAnalysis.issues?.length || siteAnalysis.competitorInsights?.length || 0} insights`);
     }
 
-    // Update CRM + send notifications (skip if no email — e.g. quick demo from dashboard)
+    // Step 6: Notify (skip if no email)
     const skipNotifications = !leadData.email;
     if (skipNotifications) {
       console.log('[orchestrator] Skipping CRM/SMS/Email (no email — quick demo mode)');
@@ -137,33 +197,19 @@ export async function processEnhancedDemo(leadData) {
         if (crmResult?.id) {
           console.log(`✅ CRM updated: Contact ID ${crmResult.id}`);
 
-          // Send SMS notification
+          // SMS — pass flow type so template can adapt
           try {
-            const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name, siteAnalysis);
-            if (smsResult.sent) {
-              console.log(`✅ SMS sent: ${smsResult.message}`);
-            } else {
-              console.log(`⚠️ SMS failed: ${smsResult.message}`);
-              errors.push('SMS delivery failed');
-            }
-          } catch (smsError) {
-            console.error('[orchestrator] SMS error:', smsError);
-            errors.push('SMS delivery error');
-          }
+            const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name, siteAnalysis, flowType);
+            if (smsResult.sent) console.log(`✅ SMS sent: ${smsResult.message}`);
+            else errors.push('SMS delivery failed');
+          } catch (e) { errors.push('SMS delivery error'); }
 
-          // Send Email notification
+          // Email — pass flow type so template can adapt
           try {
-            const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email, siteAnalysis);
-            if (emailResult.sent) {
-              console.log(`✅ Email sent: ${emailResult.message}`);
-            } else {
-              console.log(`⚠️ Email failed: ${emailResult.message}`);
-              errors.push('Email delivery failed');
-            }
-          } catch (emailError) {
-            console.error('[orchestrator] Email error:', emailError);
-            errors.push('Email delivery error');
-          }
+            const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email, siteAnalysis, flowType);
+            if (emailResult.sent) console.log(`✅ Email sent: ${emailResult.message}`);
+            else errors.push('Email delivery failed');
+          } catch (e) { errors.push('Email delivery error'); }
         }
       } catch (crmError) {
         console.error('[orchestrator] CRM error:', crmError);
@@ -171,9 +217,8 @@ export async function processEnhancedDemo(leadData) {
       }
     }
 
-    // Return success
     const generationTime = Math.round((Date.now() - startTime) / 1000);
-    console.log(`[orchestrator] ✅ Demo completed in ${generationTime}s`);
+    console.log(`[orchestrator] ✅ Demo completed in ${generationTime}s (${flowType})`);
     await log('completed', `✅ Demo completed in ${generationTime}s — ${deployResult.demoUrl}`);
 
     return {
@@ -186,7 +231,6 @@ export async function processEnhancedDemo(leadData) {
   } catch (err) {
     console.error(`[orchestrator] Demo failed:`, err);
     const generationTime = Math.round((Date.now() - startTime) / 1000);
-    
     return {
       success: false,
       error: err.message,
@@ -196,9 +240,6 @@ export async function processEnhancedDemo(leadData) {
   }
 }
 
-/**
- * Generate company slug from name
- */
 function generateCompanySlug(name) {
   return name
     .toLowerCase()

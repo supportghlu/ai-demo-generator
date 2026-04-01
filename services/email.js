@@ -5,11 +5,11 @@
 /**
  * Send Email via GHL API
  */
-export async function sendDemoEmail(contactId, demoUrl, name, email, analysis = null) {
+export async function sendDemoEmail(contactId, demoUrl, name, email, analysis = null, flowType = 'website-improvement') {
   console.log(`[email] Sending demo email to contact ${contactId} (${email})`);
 
   try {
-    const emailContent = generateEmailContent(name, demoUrl, analysis);
+    const emailContent = generateEmailContent(name, demoUrl, analysis, flowType);
     const result = await sendGHLEmail(contactId, emailContent.subject, emailContent.body);
 
     console.log(`✅ Email sent to contact ${contactId}`);
@@ -59,23 +59,39 @@ async function sendGHLEmail(contactId, subject, body) {
   return response.json();
 }
 
-function generateEmailContent(name, demoUrl, analysis) {
+function generateEmailContent(name, demoUrl, analysis, flowType) {
   const firstName = name?.split(' ')[0] || 'there';
+  const isNoWebsite = flowType === 'no-website';
 
-  const subject = analysis?.businessName
-    ? `${firstName}, we've analysed your ${analysis.businessName} website`
-    : `Your AI Website Demo is Ready`;
+  const subject = isNoWebsite
+    ? (analysis?.businessName
+      ? `${firstName}, we've built your new ${analysis.businessName} website`
+      : `${firstName}, your new website is ready`)
+    : (analysis?.businessName
+      ? `${firstName}, we've analysed your ${analysis.businessName} website`
+      : `Your AI Website Demo is Ready`);
 
   let body;
 
-  if (analysis?.issues?.length && analysis?.improvements?.length) {
-    const issuesHtml = analysis.issues
+  // Normalize analysis fields — no-website flow uses competitorInsights/whatWeBuilt
+  const issuesList = analysis?.issues || analysis?.competitorInsights || [];
+  const improvementsList = analysis?.improvements || analysis?.whatWeBuilt || [];
+
+  if (issuesList.length && improvementsList.length) {
+    const issuesHtml = issuesList
       .map(i => `<li style="margin-bottom:8px;color:#dc2626;">${escapeHtml(i)}</li>`)
       .join('\n');
 
-    const improvementsHtml = analysis.improvements
+    const improvementsHtml = improvementsList
       .map(i => `<li style="margin-bottom:8px;color:#16a34a;">${escapeHtml(i)}</li>`)
       .join('\n');
+
+    const issuesTitle = isNoWebsite
+      ? `\u{1F50D} What your competitors have`
+      : `\u{1F50D} What we found on your current site`;
+    const improvementsTitle = isNoWebsite
+      ? `\u{2705} What we built for you`
+      : `\u{2705} What we improved in your demo`;
 
     body = `
 <!DOCTYPE html>
@@ -104,7 +120,7 @@ function generateEmailContent(name, demoUrl, analysis) {
         <!-- Issues -->
         <div style="background:#fef2f2;border-left:4px solid #dc2626;border-radius:0 8px 8px 0;padding:20px 24px;margin-bottom:24px;">
           <h2 style="margin:0 0 12px;font-size:15px;color:#991b1b;font-weight:700;">
-            \u{1F50D} What we found on your current site
+            ${issuesTitle}
           </h2>
           <ul style="margin:0;padding:0 0 0 20px;font-size:14px;line-height:1.6;">
             ${issuesHtml}
@@ -114,7 +130,7 @@ function generateEmailContent(name, demoUrl, analysis) {
         <!-- Improvements -->
         <div style="background:#f0fdf4;border-left:4px solid #16a34a;border-radius:0 8px 8px 0;padding:20px 24px;margin-bottom:24px;">
           <h2 style="margin:0 0 12px;font-size:15px;color:#166534;font-weight:700;">
-            \u{2705} What we improved in your demo
+            ${improvementsTitle}
           </h2>
           <ul style="margin:0;padding:0 0 0 20px;font-size:14px;line-height:1.6;">
             ${improvementsHtml}

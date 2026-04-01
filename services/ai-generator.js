@@ -576,3 +576,227 @@ RULES:
     return { success: false, error: err.message };
   }
 }
+
+// --- No-Website Flow: Generate from Scratch ---
+
+const FROM_SCRATCH_SYSTEM = `You are an expert web designer creating a brand new premium website for a business that currently has NO website. You have competitor research data showing what successful businesses in this industry look like.
+
+APPROACH:
+1. Study the competitor data to understand industry standards — what sections, features, and design patterns work best
+2. Create an ORIGINAL website for this specific business — do NOT copy competitor text or content
+3. Design it as if a client paid $10,000 for a custom site
+
+WHAT YOU KNOW ABOUT THE BUSINESS:
+- Business type, name, and location are provided
+- Target customers are described
+- Services offered may be listed
+
+WHAT TO CREATE:
+- Hero section with compelling headline + strong CTA (Book Now / Get a Quote / Call Us)
+- About section: professional description of the business (write original copy based on the business type and location)
+- Services section: list each service with a brief description (use the provided services, or infer 4-6 typical services for this business type)
+- Why Choose Us: 3-4 trust-building points relevant to this industry
+- Testimonials: create 3 realistic placeholder testimonials with first names only
+- Contact section: business name, location, placeholder phone/email, Google Maps link
+- Footer with navigation links
+
+DESIGN STANDARDS:
+- Premium, modern design — not a template
+- Google Fonts, CSS custom properties, responsive breakpoints
+- Smooth scroll, hover effects, scroll-triggered animations via IntersectionObserver
+- Industry-appropriate color palette (infer from business type if no competitor data)
+- Mobile-first responsive design
+
+IMAGES:
+- If competitor images are provided, you may use them as visual inspiration for layout only
+- Use CSS gradients, patterns, or SVG illustrations for visual interest where no images are available
+- DO NOT use placeholder image URLs from external sources
+
+TECHNICAL:
+- Single complete HTML file with embedded <style> and <script>
+- MUST end with </body></html>
+
+OUTPUT: Complete HTML file only. No explanations, no markdown fences.`;
+
+/**
+ * Generate a website from scratch (no-website flow)
+ * @param {object} businessInfo - { businessType, businessName, location, idealCustomers, servicesOffered }
+ * @param {Array} competitors - Array of { url, title, scrapedData }
+ * @param {string|null} screenshot - Best competitor's screenshot (base64)
+ * @returns {Promise<{success: boolean, files?: object, error?: string}>}
+ */
+export async function generateWebsiteFromScratch(businessInfo, competitors = [], screenshot = null) {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+
+  if (!anthropicKey && !openaiKey) {
+    return { success: false, error: 'No AI API key configured' };
+  }
+
+  const model = 'claude-sonnet-4-20250514';
+  console.log(`[ai-gen] Generating from scratch for: ${businessInfo.businessType} in ${businessInfo.location}`);
+
+  const prompt = buildFromScratchPrompt(businessInfo, competitors, !!screenshot);
+
+  let systemPrompt = FROM_SCRATCH_SYSTEM;
+  if (screenshot) {
+    systemPrompt += `\n\nVISUAL REFERENCE:\nYou are provided with a screenshot of a top competitor's website. Use it as design inspiration for layout, color balance, and section ordering. Do NOT copy their content.`;
+  }
+
+  try {
+    // Pass 1: Generate
+    console.log('[ai-gen] From-scratch Pass 1...');
+    let html = anthropicKey
+      ? await callAnthropic(anthropicKey, systemPrompt, prompt, model, screenshot)
+      : await callOpenAI(openaiKey, FROM_SCRATCH_SYSTEM, prompt);
+
+    html = extractCodeBlock(html, 'html') || html;
+    if (!html || html.length < 1000) {
+      return { success: false, error: 'Generated HTML too short' };
+    }
+    html = ensureClosingTags(html);
+    console.log(`[ai-gen] From-scratch Pass 1: ${html.length} chars`);
+
+    // Pass 2: Refinement (if enabled)
+    if (process.env.ENABLE_REFINEMENT !== 'false' && anthropicKey) {
+      try {
+        console.log('[ai-gen] From-scratch Pass 2: Refining...');
+        const refinePrompt = `Review and improve this generated website for a ${businessInfo.businessType} in ${businessInfo.location}.
+
+GENERATED HTML:
+\`\`\`html
+${html}
+\`\`\`
+
+Improve: visual polish, responsive design, content completeness, section flow. Ensure it ends with </body></html>.
+OUTPUT: Complete improved HTML file only. No explanations.`;
+
+        const refined = await callAnthropic(anthropicKey, REFINEMENT_SYSTEM, refinePrompt, model, screenshot);
+        const refinedHtml = extractCodeBlock(refined, 'html') || refined;
+        if (refinedHtml && refinedHtml.length > html.length * 0.5) {
+          html = ensureClosingTags(refinedHtml);
+          console.log(`[ai-gen] From-scratch Pass 2: ${html.length} chars`);
+        }
+      } catch (e) {
+        console.warn(`[ai-gen] Refinement failed: ${e.message}`);
+      }
+    }
+
+    return { success: true, files: { html, css: '', js: '' } };
+  } catch (err) {
+    console.error('[ai-gen] From-scratch generation failed:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+function buildFromScratchPrompt(businessInfo, competitors, hasScreenshot) {
+  let prompt = `Create a premium website for this business:
+
+BUSINESS TYPE: ${businessInfo.businessType}
+BUSINESS NAME: ${businessInfo.businessName || businessInfo.businessType}
+LOCATION: ${businessInfo.location}`;
+
+  if (businessInfo.idealCustomers) {
+    prompt += `\nTARGET CUSTOMERS: ${businessInfo.idealCustomers}`;
+  }
+  if (businessInfo.servicesOffered) {
+    prompt += `\nSERVICES OFFERED: ${businessInfo.servicesOffered}`;
+  }
+
+  // Add competitor insights
+  if (competitors.length > 0) {
+    prompt += `\n\nCOMPETITOR RESEARCH (${competitors.length} competitors analysed):`;
+    for (let i = 0; i < competitors.length; i++) {
+      const c = competitors[i];
+      const data = c.scrapedData || {};
+      prompt += `\n\n--- Competitor ${i + 1}: ${c.title || c.url} ---`;
+      if (data.navigation?.length) {
+        prompt += `\nNavigation: ${data.navigation.map(n => n.text).join(' | ')}`;
+      }
+      if (data.headings?.length) {
+        prompt += `\nKey headings: ${data.headings.slice(0, 10).map(h => h.text).join(' | ')}`;
+      }
+      if (data.ctaButtons?.length) {
+        prompt += `\nCTAs: ${data.ctaButtons.join(' | ')}`;
+      }
+      if (data.sections?.length) {
+        prompt += `\nContent preview: ${data.sections.slice(0, 3).map(s => s.textPreview?.substring(0, 150)).join(' ... ')}`;
+      }
+    }
+  }
+
+  if (hasScreenshot) {
+    prompt += `\n\nThe attached screenshot shows a top competitor's website — use it for design inspiration only.`;
+  }
+
+  prompt += `\n\nCreate an original, premium website. Do NOT copy competitor text. The HTML MUST end with </body></html>.
+OUTPUT: Single complete HTML file. No markdown, no explanations.`;
+
+  return prompt;
+}
+
+/**
+ * Generate competitor analysis for email/SMS (no-website flow)
+ */
+export async function generateCompetitorAnalysis(businessInfo, competitors = []) {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) return { success: false, error: 'No Anthropic API key' };
+
+  const model = 'claude-sonnet-4-20250514';
+  console.log('[ai-gen] Generating competitor analysis...');
+
+  try {
+    let competitorSummary = '';
+    for (const c of competitors.slice(0, 3)) {
+      const d = c.scrapedData || {};
+      competitorSummary += `\n- ${c.title || c.url}: ${d.headings?.length || 0} headings, ${d.navigation?.length || 0} nav items, CTAs: ${(d.ctaButtons || []).join(', ') || 'none'}`;
+    }
+
+    const prompt = `Analyse these competitors for a ${businessInfo.businessType} business in ${businessInfo.location} and generate insights.
+
+COMPETITORS:${competitorSummary || '\nNo competitor data available.'}
+
+BUSINESS: ${businessInfo.businessName || businessInfo.businessType} in ${businessInfo.location}
+TARGET CUSTOMERS: ${businessInfo.idealCustomers || 'general'}
+
+Return a JSON object (no markdown, ONLY JSON):
+{
+  "businessName": "${businessInfo.businessName || businessInfo.businessType}",
+  "industry": "${businessInfo.businessType}",
+  "competitorInsights": [
+    "What top competitors in ${businessInfo.location} have that this business is missing",
+    "Another competitor advantage",
+    "Another insight"
+  ],
+  "whatWeBuilt": [
+    "Specific feature we built for them",
+    "Another feature",
+    "Professional responsive website optimised for ${businessInfo.idealCustomers || 'their target audience'}",
+    "Added an AI-powered chat assistant for 24/7 customer support and bookings",
+    "Added an AI voice agent for natural, hands-free enquiries about services and availability"
+  ]
+}
+
+RULES:
+- competitorInsights: 3-5 specific things competitors have (online booking, reviews, gallery, etc.)
+- whatWeBuilt: 3-5 features including the AI chat + voice agents as the last two
+- Be specific to ${businessInfo.businessType} businesses, not generic`;
+
+    const result = await _callAnthropicRaw(anthropicKey, 'You are a competitor analyst. Return only valid JSON.', prompt, model, null, 1);
+
+    let analysis;
+    try {
+      const jsonStr = result.replace(/```json?\s*\n?/g, '').replace(/```\s*$/g, '').trim();
+      analysis = JSON.parse(jsonStr);
+    } catch {
+      console.error('[ai-gen] Failed to parse competitor analysis JSON');
+      return { success: false, error: 'Failed to parse analysis' };
+    }
+
+    console.log(`[ai-gen] Competitor analysis: ${analysis.competitorInsights?.length} insights, ${analysis.whatWeBuilt?.length} features`);
+    return { success: true, analysis };
+  } catch (err) {
+    console.error('[ai-gen] Competitor analysis failed:', err.message);
+    return { success: false, error: err.message };
+  }
+}

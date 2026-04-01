@@ -5,11 +5,11 @@
 /**
  * Send SMS via GHL API
  */
-export async function sendDemoSMS(contactId, demoUrl, name, analysis = null) {
+export async function sendDemoSMS(contactId, demoUrl, name, analysis = null, flowType = 'website-improvement') {
   console.log(`[sms] Sending demo SMS to contact ${contactId}`);
 
   try {
-    const smsContent = generateSMSContent(name, demoUrl, analysis);
+    const smsContent = generateSMSContent(name, demoUrl, analysis, flowType);
     const result = await sendGHLSMS(contactId, smsContent);
 
     console.log(`✅ SMS sent to contact ${contactId}`);
@@ -58,12 +58,16 @@ async function sendGHLSMS(contactId, message) {
   return response.json();
 }
 
-function generateSMSContent(name, demoUrl, analysis) {
+function generateSMSContent(name, demoUrl, analysis, flowType) {
   const firstName = name?.split(' ')[0] || 'there';
+
+  if (flowType === 'no-website' && analysis?.competitorInsights?.length) {
+    const insight = analysis.competitorInsights[0].replace(/\.$/, '').toLowerCase();
+    return `Hi ${firstName}, we researched your competitors and found that ${insight}. We've built you a new website with AI chat & voice assistants. See it: ${demoUrl} — GHLU Team`;
+  }
 
   if (analysis?.issues?.length) {
     const issueCount = analysis.issues.length;
-    // Pick the most impactful issue (first one)
     const topIssue = analysis.issues[0].replace(/^No\s+/i, 'no ').replace(/\.$/, '');
     return `Hi ${firstName}, we analysed your website and found ${issueCount} areas to improve — including ${topIssue}. We've built a free enhanced demo with AI chat & voice assistants included. Take a look: ${demoUrl} — GHLU Team`;
   }

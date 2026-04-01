@@ -26,12 +26,18 @@ async function processEnhancedJob(job) {
 
     // Prepare lead data for enhanced processor
     const leadData = {
+      jobId: job.id,
       contactId: job.contact_id,
       name: job.name,
       email: job.email,
       phone: job.phone,
       websiteUrl: job.website_url,
-      companyName: job.company_name || job.name
+      companyName: job.company_name || job.name,
+      hasWebsite: job.has_website !== false,
+      businessType: job.business_type || null,
+      location: job.location || null,
+      idealCustomers: job.ideal_customers || null,
+      servicesOffered: job.services_offered || null
     };
 
     // Process through enhanced pipeline
