@@ -1,455 +1,894 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Demo Generator - Live Monitoring Dashboard</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Demo Generator - Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117;
+      color: #e4e4e7;
+      min-height: 100vh;
+    }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+    .topbar {
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-        .header {
-            background: linear-gradient(45deg, #2c3e50, #34495e);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
+    .topbar h1 { font-size: 16px; font-weight: 600; }
+    .topbar h1 span { color: #818cf8; }
 
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: #71717a;
+    }
 
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-        }
+    .live-dot {
+      width: 8px; height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
 
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-            padding: 30px;
-        }
+    .live-dot.disconnected { background: #ef4444; animation: none; }
 
-        .metric-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            border: 1px solid #e0e6ed;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
 
-        .metric-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
-        }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
-        .metric-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
 
-        .metric-title {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 1.1em;
-        }
+    .stat-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 20px;
+    }
 
-        .metric-icon {
-            font-size: 1.5em;
-        }
+    .stat-label {
+      font-size: 12px;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
 
-        .metric-value {
-            font-size: 2.5em;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
 
-        .metric-subtitle {
-            color: #7f8c8d;
-            font-size: 0.9em;
-        }
+    .stat-sub {
+      font-size: 12px;
+      color: #52525b;
+      margin-top: 6px;
+    }
 
-        .status-healthy { color: #27ae60; }
-        .status-warning { color: #f39c12; }
-        .status-error { color: #e74c3c; }
+    .green { color: #22c55e; }
+    .red { color: #ef4444; }
+    .yellow { color: #eab308; }
+    .blue { color: #3b82f6; }
+    .purple { color: #818cf8; }
 
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #ecf0f1;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 15px;
-        }
+    /* Jobs Table */
+    .table-section {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      overflow: hidden;
+    }
 
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(45deg, #27ae60, #2ecc71);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
+    .table-header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #27272a;
+    }
 
-        .progress-warning { background: linear-gradient(45deg, #f39c12, #e67e22); }
-        .progress-error { background: linear-gradient(45deg, #e74c3c, #c0392b); }
+    .table-title { font-size: 14px; font-weight: 600; }
 
-        .leads-table {
-            margin: 30px;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-        }
+    .filter-group {
+      display: flex;
+      gap: 6px;
+    }
 
-        .table-header {
-            background: #f8f9fa;
-            padding: 20px;
-            border-bottom: 1px solid #e0e6ed;
-        }
+    .filter-btn {
+      background: transparent;
+      border: 1px solid #27272a;
+      color: #a1a1aa;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
 
-        .table-title {
-            font-size: 1.2em;
-            font-weight: 600;
-            color: #2c3e50;
-        }
+    .filter-btn:hover { border-color: #3f3f46; color: #e4e4e7; }
+    .filter-btn.active { background: #818cf8; border-color: #818cf8; color: #fff; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+    table { width: 100%; border-collapse: collapse; }
 
-        th, td {
-            text-align: left;
-            padding: 12px 20px;
-            border-bottom: 1px solid #e0e6ed;
-        }
+    th {
+      text-align: left;
+      padding: 10px 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #1c1c21;
+      border-bottom: 1px solid #27272a;
+    }
 
-        th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #2c3e50;
-        }
+    td {
+      padding: 12px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid #1f1f23;
+      vertical-align: middle;
+    }
 
-        .timestamp {
-            color: #adb5bd;
-            font-size: 0.8em;
-            margin-top: 5px;
-        }
+    tr:hover td { background: #1c1c21; }
 
-        .footer {
-            background: #f8f9fa;
-            padding: 20px 30px;
-            text-align: center;
-            color: #6c757d;
-            font-size: 0.9em;
-        }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
 
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
+    .badge-completed { background: #052e16; color: #4ade80; }
+    .badge-failed { background: #450a0a; color: #f87171; }
+    .badge-queued { background: #422006; color: #facc15; }
+    .badge-processing, .badge-processing_enhanced { background: #172554; color: #60a5fa; }
 
-        .live-indicator {
-            animation: pulse 2s infinite;
-            color: #27ae60;
-        }
+    a { color: #818cf8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
-        .quick-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
+    .url-cell {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-        .action-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.9em;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
+    /* Action buttons */
+    .action-btn {
+      background: transparent;
+      border: 1px solid #27272a;
+      color: #a1a1aa;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
 
-        .action-btn:hover {
-            background: #5a6fd8;
-        }
+    .action-btn:hover { border-color: #3f3f46; color: #e4e4e7; }
+    .action-btn.retry { border-color: #854d0e; color: #facc15; }
+    .action-btn.retry:hover { background: #854d0e; color: #fff; }
+    .action-btn.delete { border-color: #7f1d1d; color: #f87171; }
+    .action-btn.delete:hover { background: #7f1d1d; color: #fff; }
+    .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        .status-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            font-weight: 600;
-        }
+    /* Try Now Section */
+    .try-now {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
 
-        .status-completed { background: #d1f2eb; color: #155724; }
-        .status-failed { background: #f8d7da; color: #721c24; }
-        .status-pending { background: #fff3cd; color: #856404; }
-        .status-processing { background: #cce5ff; color: #004085; }
-    </style>
+    .try-now-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    .try-now-form {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .try-now-form .field { flex: 1; }
+    .try-now-form .field.small { flex: 0.5; }
+
+    .try-now-form label {
+      display: block;
+      font-size: 11px;
+      color: #71717a;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .try-now-form input {
+      width: 100%;
+      background: #09090b;
+      border: 1px solid #27272a;
+      color: #e4e4e7;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .try-now-form input:focus { border-color: #818cf8; }
+
+    .generate-btn {
+      background: #818cf8;
+      color: #fff;
+      border: none;
+      padding: 9px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .generate-btn:hover { background: #6366f1; }
+    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .try-now-progress {
+      margin-top: 14px;
+      display: none;
+    }
+
+    .try-now-progress.show { display: block; }
+
+    .progress-track {
+      background: #27272a;
+      border-radius: 6px;
+      height: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #818cf8, #6366f1);
+      width: 0%;
+      transition: width 0.5s ease;
+      border-radius: 6px;
+    }
+
+    .progress-bar-fill.indeterminate {
+      width: 30%;
+      animation: indeterminate 1.5s infinite ease-in-out;
+    }
+
+    @keyframes indeterminate {
+      0% { margin-left: 0%; width: 30%; }
+      50% { margin-left: 35%; width: 40%; }
+      100% { margin-left: 70%; width: 30%; }
+    }
+
+    .progress-status {
+      font-size: 12px;
+      color: #a1a1aa;
+    }
+
+    .try-now-result {
+      margin-top: 12px;
+      display: none;
+    }
+
+    .try-now-result.show { display: block; }
+
+    .result-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #052e16;
+      border: 1px solid #166534;
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+
+    .result-link a {
+      color: #4ade80;
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      background: #166534;
+      color: #4ade80;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover { background: #15803d; }
+
+    .result-error {
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 6px;
+      padding: 12px 16px;
+      color: #f87171;
+      font-size: 13px;
+    }
+
+    /* Job Detail Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 640px;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .modal h2 { font-size: 16px; margin-bottom: 16px; }
+
+    .modal-close {
+      float: right;
+      background: none;
+      border: none;
+      color: #71717a;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .log-entry {
+      padding: 8px 12px;
+      border-left: 3px solid #27272a;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #a1a1aa;
+    }
+
+    .log-entry .step { color: #818cf8; font-weight: 600; }
+    .log-entry .time { color: #52525b; margin-left: 8px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: #52525b;
+    }
+
+    /* Toast notifications */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 13px;
+      z-index: 300;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success { border-color: #166534; color: #4ade80; }
+    .toast.error { border-color: #7f1d1d; color: #f87171; }
+
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .filter-group { display: none; }
+      .url-cell { max-width: 120px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚀 AI Demo Generator - Live Dashboard</h1>
-            <p>Real-time monitoring of demo website creation system</p>
-            <div class="timestamp">Last updated: <span class="live-indicator" id="lastUpdate">Loading...</span></div>
-        </div>
 
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span class="metric-title">System Health</span>
-                    <span class="metric-icon">❤️</span>
-                </div>
-                <div class="metric-value status-healthy" id="systemStatus">HEALTHY</div>
-                <div class="metric-subtitle">Production system status</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: 95%;"></div>
-                </div>
-            </div>
+<div class="topbar">
+  <h1>AI Demo Generator <span>Dashboard</span></h1>
+  <div class="topbar-right">
+    <span><span class="live-dot" id="liveDot"></span> <span id="connectionStatus">Connecting...</span></span>
+    <span id="lastUpdate"></span>
+  </div>
+</div>
 
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span class="metric-title">Total Demos</span>
-                    <span class="metric-icon">📊</span>
-                </div>
-                <div class="metric-value status-healthy" id="totalDemos">0</div>
-                <div class="metric-subtitle">All time generated</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: 100%;"></div>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span class="metric-title">Success Rate</span>
-                    <span class="metric-icon">✅</span>
-                </div>
-                <div class="metric-value status-healthy" id="successRate">0%</div>
-                <div class="metric-subtitle">Demo generation success</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="successProgress" style="width: 0%;"></div>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span class="metric-title">Active Jobs</span>
-                    <span class="metric-icon">⚡</span>
-                </div>
-                <div class="metric-value status-healthy" id="activeJobs">0</div>
-                <div class="metric-subtitle">Currently processing</div>
-                <div class="progress-bar">
-                    <div class="progress-fill progress-warning" id="activeProgress" style="width: 0%;"></div>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span class="metric-title">Completed Today</span>
-                    <span class="metric-icon">🎯</span>
-                </div>
-                <div class="metric-value status-healthy" id="completedToday">0</div>
-                <div class="metric-subtitle">Successfully generated</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: 80%;"></div>
-                </div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span class="metric-title">Response Time</span>
-                    <span class="metric-icon">⚡</span>
-                </div>
-                <div class="metric-value status-healthy" id="responseTime">0ms</div>
-                <div class="metric-subtitle">Average processing time</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: 85%;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="leads-table">
-            <div class="table-header">
-                <div class="table-title">📋 Recent Demo Generations</div>
-            </div>
-            <table id="leadsTable">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Company</th>
-                        <th>Contact</th>
-                        <th>Original URL</th>
-                        <th>Demo URL</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                    </tr>
-                </thead>
-                <tbody id="leadsTableBody">
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px; color: #7f8c8d;">
-                            Loading demo data...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="footer">
-            <p>🤖 Live Dashboard - Updates every 30 seconds</p>
-            <p>⚙️ Production URL: https://ai-demo-generator-v3-production.up.railway.app</p>
-        </div>
+<div class="container">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Demos</div>
+      <div class="stat-value purple" id="totalDemos">-</div>
+      <div class="stat-sub">All time</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">Completed</div>
+      <div class="stat-value green" id="completedCount">-</div>
+      <div class="stat-sub" id="successRateSub">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Failed</div>
+      <div class="stat-value red" id="failedCount">-</div>
+      <div class="stat-sub" id="failedSub">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active</div>
+      <div class="stat-value yellow" id="activeJobs">-</div>
+      <div class="stat-sub">Processing now</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Today</div>
+      <div class="stat-value blue" id="completedToday">-</div>
+      <div class="stat-sub">Completed today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Time</div>
+      <div class="stat-value" id="avgTime">-</div>
+      <div class="stat-sub">Per demo</div>
+    </div>
+  </div>
 
-    <script>
-        let isUpdating = false;
+  <!-- Try Now -->
+  <div class="try-now">
+    <div class="try-now-title">Quick Demo Generator</div>
+    <div class="try-now-form">
+      <div class="field">
+        <label>Website URL</label>
+        <input type="text" id="tryUrl" placeholder="https://example.com" />
+      </div>
+      <div class="field small">
+        <label>Company Name (optional)</label>
+        <input type="text" id="tryCompany" placeholder="Company name" />
+      </div>
+      <button class="generate-btn" id="generateBtn" onclick="generateQuickDemo()">Generate Demo</button>
+    </div>
+    <div class="try-now-progress" id="tryProgress">
+      <div class="progress-track">
+        <div class="progress-bar-fill indeterminate" id="tryProgressBar"></div>
+      </div>
+      <div class="progress-status" id="tryStatus">Starting generation...</div>
+    </div>
+    <div class="try-now-result" id="tryResult"></div>
+  </div>
 
-        function updateTimestamp() {
-            const now = new Date().toLocaleString();
-            document.getElementById('lastUpdate').textContent = now;
+  <div class="table-section">
+    <div class="table-header">
+      <span class="table-title">Jobs</span>
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="completed">Completed</button>
+        <button class="filter-btn" data-filter="failed">Failed</button>
+        <button class="filter-btn" data-filter="queued">Queued</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Company</th>
+          <th>Website</th>
+          <th>Demo</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="jobsBody">
+        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Job Detail Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h2 id="modalTitle">Job Details</h2>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+  let allJobs = [];
+  let currentFilter = 'all';
+  let eventSource = null;
+
+  // --- SSE Connection ---
+  function connectSSE() {
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource('/api/events');
+
+    eventSource.onopen = () => {
+      document.getElementById('liveDot').classList.remove('disconnected');
+      document.getElementById('connectionStatus').textContent = 'Live';
+    };
+
+    eventSource.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'job_started' || data.type === 'job_completed' || data.type === 'job_failed' || data.type === 'job_updated' || data.type === 'job_created') {
+          fetchAll();
+          handleQuickDemoSSE(data);
+          if (data.type === 'job_completed' && data.jobId !== activeQuickJobId) {
+            showToast('Demo completed', 'success');
+          } else if (data.type === 'job_failed' && data.jobId !== activeQuickJobId) {
+            showToast('Job failed: ' + (data.error || 'unknown'), 'error');
+          }
         }
+      } catch {}
+    };
 
-        async function fetchDashboardData() {
-            if (isUpdating) return;
-            isUpdating = true;
+    eventSource.onerror = () => {
+      document.getElementById('liveDot').classList.add('disconnected');
+      document.getElementById('connectionStatus').textContent = 'Reconnecting...';
+      // EventSource auto-reconnects
+    };
+  }
 
-            try {
-                // Fetch health and stats data
-                const [healthResponse, statsResponse] = await Promise.all([
-                    fetch('/health'),
-                    fetch('/status/')
-                ]);
+  // --- Data Fetching ---
+  async function fetchAll() {
+    try {
+      const [statsRes, jobsRes] = await Promise.all([
+        fetch('/api/stats'),
+        fetch('/api/jobs')
+      ]);
+      const stats = await statsRes.json();
+      const jobs = await jobsRes.json();
 
-                const healthData = await healthResponse.json();
-                const statsData = await statsResponse.json();
+      updateStats(stats);
+      allJobs = jobs;
+      renderJobs();
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+    } catch (err) {
+      console.error('Fetch failed:', err);
+    }
+  }
 
-                // Update metrics
-                updateMetrics(healthData, statsData);
+  function updateStats(data) {
+    const total = parseInt(data.jobs?.total) || 0;
+    const completed = parseInt(data.jobs?.completed) || 0;
+    const failed = parseInt(data.jobs?.failed) || 0;
+    const pending = parseInt(data.jobs?.pending) || 0;
+    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-                // Fetch all jobs for the table
-                const jobsResponse = await fetch('/api/jobs');
-                const jobsData = await jobsResponse.json();
-                updateLeadsTable(jobsData);
+    document.getElementById('totalDemos').textContent = total;
+    document.getElementById('completedCount').textContent = completed;
+    document.getElementById('failedCount').textContent = failed;
+    document.getElementById('activeJobs').textContent = pending;
+    document.getElementById('completedToday').textContent = data.todayCompleted ?? '-';
+    document.getElementById('successRateSub').textContent = `${rate}% success rate`;
+    document.getElementById('failedSub').textContent = failed > 0 ? `${Math.round((failed / total) * 100)}% failure rate` : 'No failures';
 
-            } catch (error) {
-                console.error('Failed to fetch dashboard data:', error);
-                document.getElementById('systemStatus').textContent = 'ERROR';
-                document.getElementById('systemStatus').className = 'metric-value status-error';
-            } finally {
-                isUpdating = false;
-                updateTimestamp();
-            }
-        }
+    const avgSec = data.avgGenerationTime || 0;
+    document.getElementById('avgTime').textContent = avgSec > 0 ? `${avgSec}s` : '-';
+  }
 
-        function updateMetrics(health, stats) {
-            // System Health
-            const systemStatus = health.status === 'ok' ? 'HEALTHY' : 'ERROR';
-            const statusClass = health.status === 'ok' ? 'status-healthy' : 'status-error';
-            document.getElementById('systemStatus').textContent = systemStatus;
-            document.getElementById('systemStatus').className = `metric-value ${statusClass}`;
+  // --- Jobs Table ---
+  function renderJobs() {
+    const filtered = currentFilter === 'all'
+      ? allJobs
+      : allJobs.filter(j => j.status === currentFilter || (currentFilter === 'queued' && j.status.includes('processing')));
 
-            // Total Demos
-            const total = stats.jobs?.total || 0;
-            document.getElementById('totalDemos').textContent = total;
+    const tbody = document.getElementById('jobsBody');
 
-            // Success Rate
-            const completed = stats.jobs?.completed || 0;
-            const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-            document.getElementById('successRate').textContent = `${successRate}%`;
-            
-            const successClass = successRate >= 80 ? 'status-healthy' : 
-                                successRate >= 60 ? 'status-warning' : 'status-error';
-            document.getElementById('successRate').className = `metric-value ${successClass}`;
-            document.getElementById('successProgress').style.width = `${successRate}%`;
-            
-            if (successRate >= 80) {
-                document.getElementById('successProgress').className = 'progress-fill';
-            } else if (successRate >= 60) {
-                document.getElementById('successProgress').className = 'progress-fill progress-warning';
-            } else {
-                document.getElementById('successProgress').className = 'progress-fill progress-error';
-            }
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No jobs found</td></tr>';
+      return;
+    }
 
-            // Active Jobs
-            const pending = stats.jobs?.pending || 0;
-            document.getElementById('activeJobs').textContent = pending;
-            document.getElementById('activeProgress').style.width = `${Math.min(pending * 20, 100)}%`;
+    tbody.innerHTML = filtered.map(job => {
+      const id = job.id?.substring(0, 8) || '-';
+      const company = job.company_name || job.name || '-';
+      const website = job.website_url || '-';
+      const websiteShort = website.replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+      const demoUrl = job.demo_url || '';
+      const status = job.status || 'unknown';
+      const created = job.created_at ? new Date(job.created_at).toLocaleString() : '-';
+      const badgeClass = status.includes('processing') ? 'processing' : status;
 
-            // Completed Today (approximate)
-            document.getElementById('completedToday').textContent = Math.round(completed * 0.3);
+      return `<tr>
+        <td><a href="javascript:void(0)" onclick="showJobDetail('${job.id}')">${id}...</a></td>
+        <td>${esc(company)}</td>
+        <td class="url-cell">${website !== '-' ? `<a href="${esc(website)}" target="_blank">${esc(websiteShort)}</a>` : '-'}</td>
+        <td>${demoUrl ? `<a href="${esc(demoUrl)}" target="_blank">View Demo</a>` : '-'}</td>
+        <td><span class="badge badge-${badgeClass}">${status}</span></td>
+        <td>${created}</td>
+        <td>
+          ${status === 'failed' ? `<button class="action-btn retry" onclick="retryJob('${job.id}')">Retry</button>` : ''}
+          ${demoUrl ? `<button class="action-btn delete" onclick="deleteDemo('${job.id}')">Delete</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  }
 
-            // Response Time (from uptime as placeholder)
-            const responseTime = health.uptime ? Math.round(health.uptime * 10) : 0;
-            document.getElementById('responseTime').textContent = `${responseTime}ms`;
-        }
+  // --- Filters ---
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      renderJobs();
+    });
+  });
 
-        function updateLeadsTable(jobs) {
-            const tbody = document.getElementById('leadsTableBody');
-            
-            if (!jobs || jobs.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px; color: #7f8c8d;">
-                            No demo generations found
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
+  // --- Actions ---
+  async function retryJob(jobId) {
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Job queued for retry', 'success');
+        fetchAll();
+      } else {
+        showToast(data.error || 'Retry failed', 'error');
+      }
+    } catch {
+      showToast('Retry request failed', 'error');
+    }
+  }
 
-            tbody.innerHTML = jobs.map(job => `
-                <tr>
-                    <td><a href="/status/${job.id}" style="color: #667eea;">${job.id.substring(0, 8)}...</a></td>
-                    <td>${job.company || job.name || '-'}</td>
-                    <td>${job.email || job.contact_id || '-'}</td>
-                    <td>
-                        ${job.website_url ? `<a href="${job.website_url}" target="_blank" style="color: #667eea;">${job.website_url}</a>` : '-'}
-                    </td>
-                    <td>
-                        ${job.demo_url ? `<a href="${job.demo_url}" target="_blank" style="color: #27ae60;">View Demo</a>` : '-'}
-                    </td>
-                    <td>
-                        <span class="status-badge status-${job.status}">${job.status}</span>
-                    </td>
-                    <td>${new Date(job.created_at).toLocaleString()}</td>
-                </tr>
-            `).join('');
-        }
+  async function deleteDemo(jobId) {
+    if (!confirm('Delete this demo? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/demo`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Demo deleted', 'success');
+        fetchAll();
+      } else {
+        showToast(data.error || 'Delete failed', 'error');
+      }
+    } catch {
+      showToast('Delete request failed', 'error');
+    }
+  }
 
-        // Initialize dashboard
-        document.addEventListener('DOMContentLoaded', function() {
-            fetchDashboardData();
-            
-            // Update every 30 seconds
-            setInterval(fetchDashboardData, 30000);
-        });
-    </script>
+  // --- Job Detail Modal ---
+  async function showJobDetail(jobId) {
+    document.getElementById('modalOverlay').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Loading...';
+    document.getElementById('modalContent').innerHTML = '';
+
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const { job, logs } = await res.json();
+
+      document.getElementById('modalTitle').textContent = `Job ${job.id.substring(0, 8)}...`;
+
+      let html = `
+        <div style="margin-bottom:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+            <div><span style="color:#71717a;">Company:</span> ${esc(job.company_name || job.name || '-')}</div>
+            <div><span style="color:#71717a;">Email:</span> ${esc(job.email || '-')}</div>
+            <div><span style="color:#71717a;">Website:</span> ${job.website_url ? `<a href="${esc(job.website_url)}" target="_blank">${esc(job.website_url)}</a>` : '-'}</div>
+            <div><span style="color:#71717a;">Status:</span> <span class="badge badge-${job.status}">${job.status}</span></div>
+            <div><span style="color:#71717a;">Demo:</span> ${job.demo_url ? `<a href="${esc(job.demo_url)}" target="_blank">View Demo</a>` : '-'}</div>
+            <div><span style="color:#71717a;">Retries:</span> ${job.retry_count || 0}</div>
+          </div>
+          ${job.error_message ? `<div style="margin-top:12px;padding:10px;background:#450a0a;border-radius:6px;color:#f87171;font-size:12px;font-family:monospace;">${esc(job.error_message)}</div>` : ''}
+        </div>
+        <h3 style="font-size:13px;color:#71717a;margin-bottom:8px;">Execution Log</h3>
+      `;
+
+      if (logs && logs.length > 0) {
+        html += logs.map(log => `
+          <div class="log-entry">
+            <span class="step">${esc(log.step)}</span>
+            <span class="time">${new Date(log.created_at).toLocaleTimeString()}</span>
+            <div style="margin-top:4px;">${esc(log.message)}</div>
+          </div>
+        `).join('');
+      } else {
+        html += '<div style="color:#52525b;font-size:12px;">No logs available</div>';
+      }
+
+      document.getElementById('modalContent').innerHTML = html;
+    } catch {
+      document.getElementById('modalContent').innerHTML = '<div style="color:#f87171;">Failed to load job details</div>';
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('show');
+  }
+
+  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // --- Toast ---
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }
+
+  // --- Helpers ---
+  function esc(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // --- Quick Demo Generator ---
+  let activeQuickJobId = null;
+
+  async function generateQuickDemo() {
+    const url = document.getElementById('tryUrl').value.trim();
+    if (!url) { document.getElementById('tryUrl').focus(); return; }
+
+    const company = document.getElementById('tryCompany').value.trim();
+    const btn = document.getElementById('generateBtn');
+    const progress = document.getElementById('tryProgress');
+    const result = document.getElementById('tryResult');
+
+    // Reset UI
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    progress.classList.add('show');
+    result.classList.remove('show');
+    result.innerHTML = '';
+    document.getElementById('tryProgressBar').className = 'progress-bar-fill indeterminate';
+    document.getElementById('tryStatus').textContent = 'Submitting job...';
+
+    try {
+      const res = await fetch('/api/demo/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website_url: url, company_name: company || undefined })
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create job');
+      }
+
+      activeQuickJobId = data.jobId;
+      document.getElementById('tryStatus').textContent = 'Job queued — waiting for processing to start...';
+
+      // Fallback polling in case SSE misses events
+      pollQuickJob(data.jobId);
+
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Generate Demo';
+      progress.classList.remove('show');
+      result.classList.add('show');
+      result.innerHTML = `<div class="result-error">${esc(err.message)}</div>`;
+    }
+  }
+
+  // Hook into SSE to track quick demo progress
+  const originalOnMessage = null;
+  function handleQuickDemoSSE(data) {
+    if (!activeQuickJobId) return;
+    if (data.jobId !== activeQuickJobId) return;
+
+    const progress = document.getElementById('tryProgress');
+    const result = document.getElementById('tryResult');
+    const btn = document.getElementById('generateBtn');
+    const statusEl = document.getElementById('tryStatus');
+    const barEl = document.getElementById('tryProgressBar');
+
+    if (data.type === 'job_started') {
+      statusEl.textContent = 'Scraping website, generating enhanced version...';
+      barEl.className = 'progress-bar-fill indeterminate';
+    } else if (data.type === 'job_completed') {
+      // Done!
+      barEl.className = 'progress-bar-fill';
+      barEl.style.width = '100%';
+      statusEl.textContent = 'Demo ready!';
+
+      const demoUrl = data.demoUrl || '';
+      result.classList.add('show');
+      result.innerHTML = `
+        <div class="result-link">
+          <a href="${esc(demoUrl)}" target="_blank">${esc(demoUrl)}</a>
+          <button class="copy-btn" onclick="copyLink('${esc(demoUrl)}')">Copy Link</button>
+          <a href="${esc(demoUrl)}" target="_blank" class="copy-btn" style="text-decoration:none;">Open</a>
+        </div>
+      `;
+
+      btn.disabled = false;
+      btn.textContent = 'Generate Demo';
+      activeQuickJobId = null;
+      fetchAll(); // Refresh table
+    } else if (data.type === 'job_failed') {
+      barEl.className = 'progress-bar-fill';
+      barEl.style.width = '100%';
+      barEl.style.background = '#ef4444';
+      statusEl.textContent = 'Generation failed';
+
+      result.classList.add('show');
+      result.innerHTML = `<div class="result-error">Failed: ${esc(data.error || 'Unknown error')}</div>`;
+
+      btn.disabled = false;
+      btn.textContent = 'Generate Demo';
+      activeQuickJobId = null;
+    }
+  }
+
+  async function pollQuickJob(jobId) {
+    if (!activeQuickJobId || activeQuickJobId !== jobId) return;
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const { job } = await res.json();
+      if (job.status === 'completed' && job.demo_url) {
+        handleQuickDemoSSE({ type: 'job_completed', jobId, demoUrl: job.demo_url });
+        return;
+      } else if (job.status === 'failed') {
+        handleQuickDemoSSE({ type: 'job_failed', jobId, error: job.error_message });
+        return;
+      }
+    } catch {}
+    // Keep polling every 5s while job is active
+    if (activeQuickJobId === jobId) {
+      setTimeout(() => pollQuickJob(jobId), 5000);
+    }
+  }
+
+  function copyLink(url) {
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied!', 'success'));
+  }
+
+  // --- Init ---
+  connectSSE();
+  fetchAll();
+  // Fallback polling every 30s in case SSE disconnects
+  setInterval(fetchAll, 30000);
+</script>
 </body>
 </html>

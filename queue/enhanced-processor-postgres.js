@@ -5,6 +5,7 @@
 
 import { getNextQueuedJob, updateStatus, setError, retryJob, addLog, setDemoUrl } from '../db-hybrid.js';
 import { processEnhancedDemo } from '../services/enhanced-orchestrator.js';
+import { broadcastSSE } from '../routes/api.js';
 
 const POLL_INTERVAL = 10000; // 10 seconds
 const MAX_RETRIES = 2;
@@ -21,6 +22,7 @@ async function processEnhancedJob(job) {
     // Update status to processing
     await updateStatus(job.id, 'processing_enhanced');
     await addLog(job.id, 'processing_enhanced', `Starting enhanced demo generation for ${job.website_url}`);
+    broadcastSSE({ type: 'job_started', jobId: job.id, websiteUrl: job.website_url });
 
     // Prepare lead data for enhanced processor
     const leadData = {
@@ -63,6 +65,7 @@ async function processEnhancedJob(job) {
         `Enhanced demo generation complete: ${result.demoUrl}`);
       
       console.log(`[enhanced-processor] Enhanced job ${job.id} completed: ${result.demoUrl}`);
+      broadcastSSE({ type: 'job_completed', jobId: job.id, demoUrl: result.demoUrl });
 
     } else {
       // Enhanced demo failed
@@ -83,6 +86,7 @@ async function processEnhancedJob(job) {
         return;
       } else {
         await setError(job.id, `Enhanced processing failed: ${result.error}`);
+        broadcastSSE({ type: 'job_failed', jobId: job.id, error: result.error });
         return;
       }
     }
@@ -90,13 +94,14 @@ async function processEnhancedJob(job) {
   } catch (err) {
     console.error(`[enhanced-processor] Job ${job.id} processing error:`, err);
     await addLog(job.id, 'processing_error', err.message);
-    
+
     if (job.retry_count < MAX_RETRIES) {
-      await addLog(job.id, 'retry_exception', 
+      await addLog(job.id, 'retry_exception',
         `Processing exception, retrying (${job.retry_count + 1}/${MAX_RETRIES})`);
       await retryJob(job.id);
     } else {
       await setError(job.id, `Processing exception: ${err.message}`);
+      broadcastSSE({ type: 'job_failed', jobId: job.id, error: err.message });
     }
   }
 }

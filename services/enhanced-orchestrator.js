@@ -101,48 +101,53 @@ export async function processEnhancedDemo(leadData) {
       console.log(`⚠️ Site analysis error: ${analysisErr.message}`);
     }
 
-    // Update CRM
-    try {
-      const crmResult = await upsertContactWithDemo({
-        name: leadData.name,
-        email: leadData.email,
-        phone: leadData.phone,
-        demoUrl: deployResult.demoUrl
-      });
-      if (crmResult?.id) {
-        console.log(`✅ CRM updated: Contact ID ${crmResult.id}`);
-        
-        // Send SMS notification
-        try {
-          const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name, siteAnalysis);
-          if (smsResult.sent) {
-            console.log(`✅ SMS sent: ${smsResult.message}`);
-          } else {
-            console.log(`⚠️ SMS failed: ${smsResult.message}`);
-            errors.push('SMS delivery failed');
+    // Update CRM + send notifications (skip if no email — e.g. quick demo from dashboard)
+    const skipNotifications = !leadData.email;
+    if (skipNotifications) {
+      console.log('[orchestrator] Skipping CRM/SMS/Email (no email — quick demo mode)');
+    } else {
+      try {
+        const crmResult = await upsertContactWithDemo({
+          name: leadData.name,
+          email: leadData.email,
+          phone: leadData.phone,
+          demoUrl: deployResult.demoUrl
+        });
+        if (crmResult?.id) {
+          console.log(`✅ CRM updated: Contact ID ${crmResult.id}`);
+
+          // Send SMS notification
+          try {
+            const smsResult = await sendDemoSMS(crmResult.id, deployResult.demoUrl, leadData.name, siteAnalysis);
+            if (smsResult.sent) {
+              console.log(`✅ SMS sent: ${smsResult.message}`);
+            } else {
+              console.log(`⚠️ SMS failed: ${smsResult.message}`);
+              errors.push('SMS delivery failed');
+            }
+          } catch (smsError) {
+            console.error('[orchestrator] SMS error:', smsError);
+            errors.push('SMS delivery error');
           }
-        } catch (smsError) {
-          console.error('[orchestrator] SMS error:', smsError);
-          errors.push('SMS delivery error');
-        }
-        
-        // Send Email notification
-        try {
-          const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email, siteAnalysis);
-          if (emailResult.sent) {
-            console.log(`✅ Email sent: ${emailResult.message}`);
-          } else {
-            console.log(`⚠️ Email failed: ${emailResult.message}`);
-            errors.push('Email delivery failed');
+
+          // Send Email notification
+          try {
+            const emailResult = await sendDemoEmail(crmResult.id, deployResult.demoUrl, leadData.name, leadData.email, siteAnalysis);
+            if (emailResult.sent) {
+              console.log(`✅ Email sent: ${emailResult.message}`);
+            } else {
+              console.log(`⚠️ Email failed: ${emailResult.message}`);
+              errors.push('Email delivery failed');
+            }
+          } catch (emailError) {
+            console.error('[orchestrator] Email error:', emailError);
+            errors.push('Email delivery error');
           }
-        } catch (emailError) {
-          console.error('[orchestrator] Email error:', emailError);
-          errors.push('Email delivery error');
         }
+      } catch (crmError) {
+        console.error('[orchestrator] CRM error:', crmError);
+        errors.push('CRM update failed');
       }
-    } catch (crmError) {
-      console.error('[orchestrator] CRM error:', crmError);
-      errors.push('CRM update failed');
     }
 
     // Return success
