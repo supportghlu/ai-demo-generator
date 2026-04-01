@@ -28,30 +28,29 @@ router.get('/jobs', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const stats = await getJobStats();
-
-    // Get today's count and average generation time from PostgreSQL
     let todayCompleted = 0;
     let avgGenerationTime = 0;
 
+    // Extended stats from PostgreSQL
     if (pool) {
-      const client = await pool.connect();
       try {
-        const todayResult = await client.query(`
-          SELECT COUNT(*) as count FROM jobs
-          WHERE status = 'completed'
-          AND created_at >= CURRENT_DATE
-        `);
-        todayCompleted = parseInt(todayResult.rows[0].count) || 0;
+        const client = await pool.connect();
+        try {
+          const todayResult = await client.query(
+            `SELECT COUNT(*) as count FROM jobs WHERE status = 'completed' AND created_at >= CURRENT_DATE`
+          );
+          todayCompleted = parseInt(todayResult.rows[0]?.count) || 0;
 
-        const avgResult = await client.query(`
-          SELECT AVG(EXTRACT(EPOCH FROM (completed_at::timestamp - created_at::timestamp))) as avg_seconds
-          FROM jobs
-          WHERE status = 'completed'
-          AND completed_at IS NOT NULL
-        `);
-        avgGenerationTime = Math.round(parseFloat(avgResult.rows[0].avg_seconds) || 0);
-      } finally {
-        client.release();
+          const avgResult = await client.query(
+            `SELECT AVG(EXTRACT(EPOCH FROM (updated_at::timestamp - created_at::timestamp))) as avg_seconds
+             FROM jobs WHERE status = 'completed'`
+          );
+          avgGenerationTime = Math.round(parseFloat(avgResult.rows[0]?.avg_seconds) || 0);
+        } finally {
+          client.release();
+        }
+      } catch (pgErr) {
+        console.error('[api] Extended stats query failed:', pgErr.message);
       }
     }
 

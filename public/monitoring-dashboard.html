@@ -3,21 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Demo Generator - Dashboard</title>
+  <title>AI Demo Generator</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f1117;
-      color: #e4e4e7;
+      background: #f8f9fb;
+      color: #1a1a2e;
       min-height: 100vh;
     }
 
+    /* Top Navigation */
     .topbar {
-      background: #18181b;
-      border-bottom: 1px solid #27272a;
-      padding: 16px 24px;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 14px 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -26,19 +27,25 @@
       z-index: 100;
     }
 
-    .topbar h1 { font-size: 16px; font-weight: 600; }
-    .topbar h1 span { color: #818cf8; }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+
+    .topbar-logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 14px;
+    }
+
+    .topbar h1 { font-size: 15px; font-weight: 600; color: #1a1a2e; }
 
     .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      font-size: 13px;
-      color: #71717a;
+      display: flex; align-items: center; gap: 16px;
+      font-size: 13px; color: #6b7280;
     }
 
     .live-dot {
-      width: 8px; height: 8px;
+      width: 7px; height: 7px;
       background: #22c55e;
       border-radius: 50%;
       display: inline-block;
@@ -47,459 +54,343 @@
 
     .live-dot.disconnected { background: #ef4444; animation: none; }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .container { max-width: 1140px; margin: 0 auto; padding: 28px 24px; }
 
-    /* Stats Grid */
-    .stats-grid {
+    /* Stats */
+    .stats-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
     }
 
-    .stat-card {
-      background: #18181b;
-      border: 1px solid #27272a;
+    .stat {
+      background: #fff;
+      border: 1px solid #e5e7eb;
       border-radius: 10px;
-      padding: 20px;
+      padding: 18px 20px;
     }
 
-    .stat-label {
-      font-size: 12px;
-      color: #71717a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
+    .stat-label { font-size: 11px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
+    .stat-sub { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+    .c-indigo { color: #4f46e5; }
+    .c-green { color: #059669; }
+    .c-red { color: #dc2626; }
+    .c-amber { color: #d97706; }
+    .c-blue { color: #2563eb; }
 
-    .stat-value {
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .stat-sub {
-      font-size: 12px;
-      color: #52525b;
-      margin-top: 6px;
-    }
-
-    .green { color: #22c55e; }
-    .red { color: #ef4444; }
-    .yellow { color: #eab308; }
-    .blue { color: #3b82f6; }
-    .purple { color: #818cf8; }
-
-    /* Jobs Table */
-    .table-section {
-      background: #18181b;
-      border: 1px solid #27272a;
+    /* Card */
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
       border-radius: 10px;
+      margin-bottom: 20px;
       overflow: hidden;
     }
 
-    .table-header {
+    .card-header {
       padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #27272a;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #f3f4f6;
     }
 
-    .table-title { font-size: 14px; font-weight: 600; }
+    .card-title { font-size: 14px; font-weight: 600; }
 
-    .filter-group {
-      display: flex;
-      gap: 6px;
-    }
-
-    .filter-btn {
-      background: transparent;
-      border: 1px solid #27272a;
-      color: #a1a1aa;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .filter-btn:hover { border-color: #3f3f46; color: #e4e4e7; }
-    .filter-btn.active { background: #818cf8; border-color: #818cf8; color: #fff; }
-
-    table { width: 100%; border-collapse: collapse; }
-
-    th {
-      text-align: left;
-      padding: 10px 20px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #71717a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background: #1c1c21;
-      border-bottom: 1px solid #27272a;
-    }
-
-    td {
-      padding: 12px 20px;
-      font-size: 13px;
-      border-bottom: 1px solid #1f1f23;
-      vertical-align: middle;
-    }
-
-    tr:hover td { background: #1c1c21; }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .badge-completed { background: #052e16; color: #4ade80; }
-    .badge-failed { background: #450a0a; color: #f87171; }
-    .badge-queued { background: #422006; color: #facc15; }
-    .badge-processing, .badge-processing_enhanced { background: #172554; color: #60a5fa; }
-
-    a { color: #818cf8; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    .url-cell {
-      max-width: 200px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    /* Action buttons */
-    .action-btn {
-      background: transparent;
-      border: 1px solid #27272a;
-      color: #a1a1aa;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .action-btn:hover { border-color: #3f3f46; color: #e4e4e7; }
-    .action-btn.retry { border-color: #854d0e; color: #facc15; }
-    .action-btn.retry:hover { background: #854d0e; color: #fff; }
-    .action-btn.delete { border-color: #7f1d1d; color: #f87171; }
-    .action-btn.delete:hover { background: #7f1d1d; color: #fff; }
-    .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-    /* Try Now Section */
-    .try-now {
-      background: #18181b;
-      border: 1px solid #27272a;
-      border-radius: 10px;
+    /* Quick Demo */
+    .quick-form {
       padding: 20px;
-      margin-bottom: 24px;
+      display: flex; gap: 12px; align-items: flex-end;
     }
 
-    .try-now-title {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 14px;
-    }
+    .field { flex: 1; }
+    .field.sm { flex: 0.4; }
 
-    .try-now-form {
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-    }
+    .field label { display: block; font-size: 12px; font-weight: 500; color: #6b7280; margin-bottom: 5px; }
 
-    .try-now-form .field { flex: 1; }
-    .try-now-form .field.small { flex: 0.5; }
-
-    .try-now-form label {
-      display: block;
-      font-size: 11px;
-      color: #71717a;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .try-now-form input {
+    .field input {
       width: 100%;
-      background: #09090b;
-      border: 1px solid #27272a;
-      color: #e4e4e7;
+      border: 1px solid #d1d5db;
       padding: 9px 12px;
-      border-radius: 6px;
+      border-radius: 7px;
       font-size: 13px;
+      color: #1a1a2e;
       outline: none;
+      transition: border-color 0.15s;
     }
 
-    .try-now-form input:focus { border-color: #818cf8; }
+    .field input:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.08); }
 
-    .generate-btn {
-      background: #818cf8;
-      color: #fff;
-      border: none;
-      padding: 9px 20px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
+    .btn-primary {
+      background: #4f46e5; color: #fff; border: none;
+      padding: 9px 22px; border-radius: 7px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
       transition: background 0.15s;
     }
 
-    .generate-btn:hover { background: #6366f1; }
-    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .try-now-progress {
-      margin-top: 14px;
-      display: none;
-    }
-
-    .try-now-progress.show { display: block; }
+    .progress-section { padding: 0 20px 20px; display: none; }
+    .progress-section.show { display: block; }
 
     .progress-track {
-      background: #27272a;
-      border-radius: 6px;
-      height: 6px;
-      overflow: hidden;
-      margin-bottom: 10px;
+      background: #f3f4f6; border-radius: 99px; height: 5px;
+      overflow: hidden; margin-bottom: 8px;
     }
 
     .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #818cf8, #6366f1);
-      width: 0%;
-      transition: width 0.5s ease;
-      border-radius: 6px;
+      height: 100%; background: #4f46e5;
+      width: 0%; transition: width 0.5s ease; border-radius: 99px;
     }
 
     .progress-bar-fill.indeterminate {
       width: 30%;
-      animation: indeterminate 1.5s infinite ease-in-out;
+      animation: slide 1.4s infinite ease-in-out;
     }
 
-    @keyframes indeterminate {
-      0% { margin-left: 0%; width: 30%; }
+    @keyframes slide {
+      0% { margin-left: 0; width: 30%; }
       50% { margin-left: 35%; width: 40%; }
       100% { margin-left: 70%; width: 30%; }
     }
 
-    .progress-status {
-      font-size: 12px;
-      color: #a1a1aa;
+    .progress-label { font-size: 12px; color: #9ca3af; }
+
+    .result-box { padding: 0 20px 20px; display: none; }
+    .result-box.show { display: block; }
+
+    .result-success {
+      display: flex; align-items: center; gap: 12px;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 8px; padding: 12px 16px;
     }
 
-    .try-now-result {
-      margin-top: 12px;
-      display: none;
+    .result-success a { color: #059669; font-weight: 600; font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+    .result-success a:hover { text-decoration: underline; }
+
+    .btn-sm {
+      padding: 5px 12px; border-radius: 5px;
+      font-size: 11px; font-weight: 600;
+      cursor: pointer; border: none; white-space: nowrap;
     }
 
-    .try-now-result.show { display: block; }
-
-    .result-link {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: #052e16;
-      border: 1px solid #166534;
-      border-radius: 6px;
-      padding: 12px 16px;
-    }
-
-    .result-link a {
-      color: #4ade80;
-      font-size: 13px;
-      font-weight: 600;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .copy-btn {
-      background: #166534;
-      color: #4ade80;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .copy-btn:hover { background: #15803d; }
+    .btn-copy { background: #059669; color: #fff; }
+    .btn-copy:hover { background: #047857; }
+    .btn-open { background: #e5e7eb; color: #374151; text-decoration: none; display: inline-block; }
+    .btn-open:hover { background: #d1d5db; }
 
     .result-error {
-      background: #450a0a;
-      border: 1px solid #7f1d1d;
-      border-radius: 6px;
-      padding: 12px 16px;
-      color: #f87171;
-      font-size: 13px;
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 8px; padding: 12px 16px;
+      color: #dc2626; font-size: 13px;
     }
 
-    /* Job Detail Modal */
+    /* Filters */
+    .filters { display: flex; gap: 5px; }
+
+    .filter-btn {
+      background: transparent; border: 1px solid #e5e7eb; color: #6b7280;
+      padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+
+    .filter-btn:hover { border-color: #d1d5db; color: #374151; }
+    .filter-btn.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; }
+
+    th {
+      text-align: left; padding: 10px 20px;
+      font-size: 11px; font-weight: 600; color: #9ca3af;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      background: #fafbfc; border-bottom: 1px solid #f3f4f6;
+    }
+
+    td {
+      padding: 12px 20px; font-size: 13px;
+      border-bottom: 1px solid #f3f4f6; vertical-align: middle;
+    }
+
+    tr:hover td { background: #fafbfc; }
+
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 99px;
+      font-size: 11px; font-weight: 600;
+    }
+
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-failed { background: #fee2e2; color: #991b1b; }
+    .badge-queued { background: #fef3c7; color: #92400e; }
+    .badge-processing, .badge-processing_enhanced { background: #dbeafe; color: #1e40af; }
+
+    a { color: #4f46e5; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .url-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .action-btn {
+      padding: 4px 10px; border-radius: 5px;
+      font-size: 11px; font-weight: 500;
+      cursor: pointer; border: 1px solid;
+      background: transparent; transition: all 0.15s;
+    }
+
+    .action-btn.retry { border-color: #fbbf24; color: #92400e; }
+    .action-btn.retry:hover { background: #fef3c7; }
+    .action-btn.delete { border-color: #fca5a5; color: #991b1b; }
+    .action-btn.delete:hover { background: #fee2e2; }
+
+    .empty-state { text-align: center; padding: 48px 20px; color: #9ca3af; }
+
+    /* Modal */
     .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.3); z-index: 200;
+      align-items: center; justify-content: center;
     }
 
     .modal-overlay.show { display: flex; }
 
     .modal {
-      background: #18181b;
-      border: 1px solid #27272a;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 640px;
-      max-height: 80vh;
-      overflow-y: auto;
-      padding: 24px;
+      background: #fff; border: 1px solid #e5e7eb;
+      border-radius: 12px; width: 90%; max-width: 620px;
+      max-height: 80vh; overflow-y: auto; padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
     }
 
-    .modal h2 { font-size: 16px; margin-bottom: 16px; }
+    .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .modal-close { float: right; background: none; border: none; color: #9ca3af; font-size: 22px; cursor: pointer; }
+    .modal-close:hover { color: #374151; }
 
-    .modal-close {
-      float: right;
-      background: none;
-      border: none;
-      color: #71717a;
-      font-size: 20px;
-      cursor: pointer;
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-bottom: 16px; }
+    .modal-grid .label { color: #9ca3af; }
+
+    .modal-error {
+      background: #fef2f2; border-radius: 6px; padding: 10px 14px;
+      color: #dc2626; font-size: 12px; font-family: monospace;
+      margin-bottom: 16px; word-break: break-all;
     }
 
     .log-entry {
-      padding: 8px 12px;
-      border-left: 3px solid #27272a;
-      margin-bottom: 6px;
-      font-size: 12px;
-      font-family: monospace;
-      color: #a1a1aa;
+      padding: 7px 12px; border-left: 3px solid #e5e7eb;
+      margin-bottom: 4px; font-size: 12px; color: #6b7280;
     }
 
-    .log-entry .step { color: #818cf8; font-weight: 600; }
-    .log-entry .time { color: #52525b; margin-left: 8px; }
+    .log-entry .step { color: #4f46e5; font-weight: 600; }
+    .log-entry .time { color: #d1d5db; margin-left: 8px; font-size: 11px; }
 
-    .empty-state {
-      text-align: center;
-      padding: 48px 20px;
-      color: #52525b;
-    }
-
-    /* Toast notifications */
+    /* Toast */
     .toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: #18181b;
-      border: 1px solid #27272a;
-      border-radius: 8px;
-      padding: 12px 20px;
-      font-size: 13px;
-      z-index: 300;
-      animation: slideIn 0.3s ease;
+      position: fixed; bottom: 24px; right: 24px;
+      background: #fff; border: 1px solid #e5e7eb;
+      border-radius: 8px; padding: 12px 20px; font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      z-index: 300; animation: fadeUp 0.3s ease;
     }
 
-    .toast.success { border-color: #166534; color: #4ade80; }
-    .toast.error { border-color: #7f1d1d; color: #f87171; }
+    .toast.success { border-left: 3px solid #059669; color: #065f46; }
+    .toast.error { border-left: 3px solid #dc2626; color: #991b1b; }
 
-    @keyframes slideIn {
-      from { transform: translateY(20px); opacity: 0; }
+    @keyframes fadeUp {
+      from { transform: translateY(12px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
 
     @media (max-width: 768px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .filter-group { display: none; }
-      .url-cell { max-width: 120px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .quick-form { flex-direction: column; }
+      .field.sm { flex: 1; }
+      .filters { display: none; }
+      .url-cell { max-width: 100px; }
+      .topbar { padding: 12px 16px; }
+      .container { padding: 16px; }
     }
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>AI Demo Generator <span>Dashboard</span></h1>
+  <div class="topbar-left">
+    <div class="topbar-logo">AI</div>
+    <h1>Demo Generator</h1>
+  </div>
   <div class="topbar-right">
     <span><span class="live-dot" id="liveDot"></span> <span id="connectionStatus">Connecting...</span></span>
-    <span id="lastUpdate"></span>
+    <span id="lastUpdate" style="color:#d1d5db;"></span>
   </div>
 </div>
 
 <div class="container">
-  <div class="stats-grid">
-    <div class="stat-card">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat">
       <div class="stat-label">Total Demos</div>
-      <div class="stat-value purple" id="totalDemos">-</div>
+      <div class="stat-value c-indigo" id="totalDemos">--</div>
       <div class="stat-sub">All time</div>
     </div>
-    <div class="stat-card">
+    <div class="stat">
       <div class="stat-label">Completed</div>
-      <div class="stat-value green" id="completedCount">-</div>
-      <div class="stat-sub" id="successRateSub">-</div>
+      <div class="stat-value c-green" id="completedCount">--</div>
+      <div class="stat-sub" id="successRateSub"></div>
     </div>
-    <div class="stat-card">
+    <div class="stat">
       <div class="stat-label">Failed</div>
-      <div class="stat-value red" id="failedCount">-</div>
-      <div class="stat-sub" id="failedSub">-</div>
+      <div class="stat-value c-red" id="failedCount">--</div>
+      <div class="stat-sub" id="failedSub"></div>
     </div>
-    <div class="stat-card">
+    <div class="stat">
       <div class="stat-label">Active</div>
-      <div class="stat-value yellow" id="activeJobs">-</div>
+      <div class="stat-value c-amber" id="activeJobs">--</div>
       <div class="stat-sub">Processing now</div>
     </div>
-    <div class="stat-card">
+    <div class="stat">
       <div class="stat-label">Today</div>
-      <div class="stat-value blue" id="completedToday">-</div>
+      <div class="stat-value c-blue" id="completedToday">--</div>
       <div class="stat-sub">Completed today</div>
     </div>
-    <div class="stat-card">
+    <div class="stat">
       <div class="stat-label">Avg Time</div>
-      <div class="stat-value" id="avgTime">-</div>
+      <div class="stat-value" id="avgTime">--</div>
       <div class="stat-sub">Per demo</div>
     </div>
   </div>
 
-  <!-- Try Now -->
-  <div class="try-now">
-    <div class="try-now-title">Quick Demo Generator</div>
-    <div class="try-now-form">
+  <!-- Quick Demo -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Quick Demo Generator</span>
+    </div>
+    <div class="quick-form">
       <div class="field">
         <label>Website URL</label>
         <input type="text" id="tryUrl" placeholder="https://example.com" />
       </div>
-      <div class="field small">
+      <div class="field sm">
         <label>Company Name (optional)</label>
         <input type="text" id="tryCompany" placeholder="Company name" />
       </div>
-      <button class="generate-btn" id="generateBtn" onclick="generateQuickDemo()">Generate Demo</button>
+      <button class="btn-primary" id="generateBtn" onclick="generateQuickDemo()">Generate Demo</button>
     </div>
-    <div class="try-now-progress" id="tryProgress">
+    <div class="progress-section" id="tryProgress">
       <div class="progress-track">
         <div class="progress-bar-fill indeterminate" id="tryProgressBar"></div>
       </div>
-      <div class="progress-status" id="tryStatus">Starting generation...</div>
+      <div class="progress-label" id="tryStatus">Starting...</div>
     </div>
-    <div class="try-now-result" id="tryResult"></div>
+    <div class="result-box" id="tryResult"></div>
   </div>
 
-  <div class="table-section">
-    <div class="table-header">
-      <span class="table-title">Jobs</span>
-      <div class="filter-group">
+  <!-- Jobs Table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Jobs</span>
+      <div class="filters">
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="completed">Completed</button>
         <button class="filter-btn" data-filter="failed">Failed</button>
@@ -523,9 +414,10 @@
       </tbody>
     </table>
   </div>
+
 </div>
 
-<!-- Job Detail Modal -->
+<!-- Modal -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">&times;</button>
@@ -538,8 +430,9 @@
   let allJobs = [];
   let currentFilter = 'all';
   let eventSource = null;
+  let activeQuickJobId = null;
 
-  // --- SSE Connection ---
+  // --- SSE ---
   function connectSSE() {
     if (eventSource) eventSource.close();
     eventSource = new EventSource('/api/events');
@@ -552,14 +445,11 @@
     eventSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === 'job_started' || data.type === 'job_completed' || data.type === 'job_failed' || data.type === 'job_updated' || data.type === 'job_created') {
+        if (['job_started','job_completed','job_failed','job_updated','job_created'].includes(data.type)) {
           fetchAll();
           handleQuickDemoSSE(data);
-          if (data.type === 'job_completed' && data.jobId !== activeQuickJobId) {
-            showToast('Demo completed', 'success');
-          } else if (data.type === 'job_failed' && data.jobId !== activeQuickJobId) {
-            showToast('Job failed: ' + (data.error || 'unknown'), 'error');
-          }
+          if (data.type === 'job_completed' && data.jobId !== activeQuickJobId) showToast('Demo completed', 'success');
+          if (data.type === 'job_failed' && data.jobId !== activeQuickJobId) showToast('Job failed', 'error');
         }
       } catch {}
     };
@@ -567,27 +457,20 @@
     eventSource.onerror = () => {
       document.getElementById('liveDot').classList.add('disconnected');
       document.getElementById('connectionStatus').textContent = 'Reconnecting...';
-      // EventSource auto-reconnects
     };
   }
 
-  // --- Data Fetching ---
+  // --- Fetch ---
   async function fetchAll() {
     try {
-      const [statsRes, jobsRes] = await Promise.all([
-        fetch('/api/stats'),
-        fetch('/api/jobs')
-      ]);
+      const [statsRes, jobsRes] = await Promise.all([fetch('/api/stats'), fetch('/api/jobs')]);
       const stats = await statsRes.json();
       const jobs = await jobsRes.json();
-
       updateStats(stats);
       allJobs = jobs;
       renderJobs();
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-    } catch (err) {
-      console.error('Fetch failed:', err);
-    }
+    } catch (err) { console.error('Fetch failed:', err); }
   }
 
   function updateStats(data) {
@@ -601,23 +484,22 @@
     document.getElementById('completedCount').textContent = completed;
     document.getElementById('failedCount').textContent = failed;
     document.getElementById('activeJobs').textContent = pending;
-    document.getElementById('completedToday').textContent = data.todayCompleted ?? '-';
-    document.getElementById('successRateSub').textContent = `${rate}% success rate`;
-    document.getElementById('failedSub').textContent = failed > 0 ? `${Math.round((failed / total) * 100)}% failure rate` : 'No failures';
+    document.getElementById('completedToday').textContent = data.todayCompleted ?? '--';
+    document.getElementById('successRateSub').textContent = total > 0 ? `${rate}% success rate` : '';
+    document.getElementById('failedSub').textContent = failed > 0 ? `${Math.round((failed / total) * 100)}% failure rate` : '';
 
-    const avgSec = data.avgGenerationTime || 0;
-    document.getElementById('avgTime').textContent = avgSec > 0 ? `${avgSec}s` : '-';
+    const avg = data.avgGenerationTime || 0;
+    document.getElementById('avgTime').textContent = avg > 0 ? `${avg}s` : '--';
   }
 
   // --- Jobs Table ---
   function renderJobs() {
     const filtered = currentFilter === 'all'
       ? allJobs
-      : allJobs.filter(j => j.status === currentFilter || (currentFilter === 'queued' && j.status.includes('processing')));
+      : allJobs.filter(j => j.status === currentFilter || (currentFilter === 'queued' && j.status?.includes('processing')));
 
     const tbody = document.getElementById('jobsBody');
-
-    if (filtered.length === 0) {
+    if (!filtered.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No jobs found</td></tr>';
       return;
     }
@@ -625,23 +507,22 @@
     tbody.innerHTML = filtered.map(job => {
       const id = job.id?.substring(0, 8) || '-';
       const company = job.company_name || job.name || '-';
-      const website = job.website_url || '-';
-      const websiteShort = website.replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
-      const demoUrl = job.demo_url || '';
+      const url = job.website_url || '-';
+      const urlShort = url.replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
       const status = job.status || 'unknown';
+      const badge = status.includes('processing') ? 'processing' : status;
       const created = job.created_at ? new Date(job.created_at).toLocaleString() : '-';
-      const badgeClass = status.includes('processing') ? 'processing' : status;
 
       return `<tr>
         <td><a href="javascript:void(0)" onclick="showJobDetail('${job.id}')">${id}...</a></td>
         <td>${esc(company)}</td>
-        <td class="url-cell">${website !== '-' ? `<a href="${esc(website)}" target="_blank">${esc(websiteShort)}</a>` : '-'}</td>
-        <td>${demoUrl ? `<a href="${esc(demoUrl)}" target="_blank">View Demo</a>` : '-'}</td>
-        <td><span class="badge badge-${badgeClass}">${status}</span></td>
+        <td class="url-cell">${url !== '-' ? `<a href="${esc(url)}" target="_blank">${esc(urlShort)}</a>` : '-'}</td>
+        <td>${job.demo_url ? `<a href="${esc(job.demo_url)}" target="_blank">View Demo</a>` : '-'}</td>
+        <td><span class="badge badge-${badge}">${status}</span></td>
         <td>${created}</td>
         <td>
           ${status === 'failed' ? `<button class="action-btn retry" onclick="retryJob('${job.id}')">Retry</button>` : ''}
-          ${demoUrl ? `<button class="action-btn delete" onclick="deleteDemo('${job.id}')">Delete</button>` : ''}
+          ${job.demo_url ? `<button class="action-btn delete" onclick="deleteDemo('${job.id}')">Delete</button>` : ''}
         </td>
       </tr>`;
     }).join('');
@@ -662,15 +543,9 @@
     try {
       const res = await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' });
       const data = await res.json();
-      if (data.success) {
-        showToast('Job queued for retry', 'success');
-        fetchAll();
-      } else {
-        showToast(data.error || 'Retry failed', 'error');
-      }
-    } catch {
-      showToast('Retry request failed', 'error');
-    }
+      data.success ? showToast('Job queued for retry', 'success') : showToast(data.error, 'error');
+      fetchAll();
+    } catch { showToast('Retry failed', 'error'); }
   }
 
   async function deleteDemo(jobId) {
@@ -678,111 +553,27 @@
     try {
       const res = await fetch(`/api/jobs/${jobId}/demo`, { method: 'DELETE' });
       const data = await res.json();
-      if (data.success) {
-        showToast('Demo deleted', 'success');
-        fetchAll();
-      } else {
-        showToast(data.error || 'Delete failed', 'error');
-      }
-    } catch {
-      showToast('Delete request failed', 'error');
-    }
+      data.success ? showToast('Demo deleted', 'success') : showToast(data.error, 'error');
+      fetchAll();
+    } catch { showToast('Delete failed', 'error'); }
   }
 
-  // --- Job Detail Modal ---
-  async function showJobDetail(jobId) {
-    document.getElementById('modalOverlay').classList.add('show');
-    document.getElementById('modalTitle').textContent = 'Loading...';
-    document.getElementById('modalContent').innerHTML = '';
-
-    try {
-      const res = await fetch(`/api/jobs/${jobId}`);
-      const { job, logs } = await res.json();
-
-      document.getElementById('modalTitle').textContent = `Job ${job.id.substring(0, 8)}...`;
-
-      let html = `
-        <div style="margin-bottom:16px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
-            <div><span style="color:#71717a;">Company:</span> ${esc(job.company_name || job.name || '-')}</div>
-            <div><span style="color:#71717a;">Email:</span> ${esc(job.email || '-')}</div>
-            <div><span style="color:#71717a;">Website:</span> ${job.website_url ? `<a href="${esc(job.website_url)}" target="_blank">${esc(job.website_url)}</a>` : '-'}</div>
-            <div><span style="color:#71717a;">Status:</span> <span class="badge badge-${job.status}">${job.status}</span></div>
-            <div><span style="color:#71717a;">Demo:</span> ${job.demo_url ? `<a href="${esc(job.demo_url)}" target="_blank">View Demo</a>` : '-'}</div>
-            <div><span style="color:#71717a;">Retries:</span> ${job.retry_count || 0}</div>
-          </div>
-          ${job.error_message ? `<div style="margin-top:12px;padding:10px;background:#450a0a;border-radius:6px;color:#f87171;font-size:12px;font-family:monospace;">${esc(job.error_message)}</div>` : ''}
-        </div>
-        <h3 style="font-size:13px;color:#71717a;margin-bottom:8px;">Execution Log</h3>
-      `;
-
-      if (logs && logs.length > 0) {
-        html += logs.map(log => `
-          <div class="log-entry">
-            <span class="step">${esc(log.step)}</span>
-            <span class="time">${new Date(log.created_at).toLocaleTimeString()}</span>
-            <div style="margin-top:4px;">${esc(log.message)}</div>
-          </div>
-        `).join('');
-      } else {
-        html += '<div style="color:#52525b;font-size:12px;">No logs available</div>';
-      }
-
-      document.getElementById('modalContent').innerHTML = html;
-    } catch {
-      document.getElementById('modalContent').innerHTML = '<div style="color:#f87171;">Failed to load job details</div>';
-    }
-  }
-
-  function closeModal() {
-    document.getElementById('modalOverlay').classList.remove('show');
-  }
-
-  document.getElementById('modalOverlay').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('modalOverlay')) closeModal();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
-
-  // --- Toast ---
-  function showToast(message, type = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-  }
-
-  // --- Helpers ---
-  function esc(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  // --- Quick Demo Generator ---
-  let activeQuickJobId = null;
-
+  // --- Quick Demo ---
   async function generateQuickDemo() {
     const url = document.getElementById('tryUrl').value.trim();
     if (!url) { document.getElementById('tryUrl').focus(); return; }
-
     const company = document.getElementById('tryCompany').value.trim();
     const btn = document.getElementById('generateBtn');
     const progress = document.getElementById('tryProgress');
     const result = document.getElementById('tryResult');
 
-    // Reset UI
     btn.disabled = true;
     btn.textContent = 'Generating...';
     progress.classList.add('show');
     result.classList.remove('show');
     result.innerHTML = '';
     document.getElementById('tryProgressBar').className = 'progress-bar-fill indeterminate';
-    document.getElementById('tryStatus').textContent = 'Submitting job...';
+    document.getElementById('tryStatus').textContent = 'Submitting...';
 
     try {
       const res = await fetch('/api/demo/generate', {
@@ -791,17 +582,11 @@
         body: JSON.stringify({ website_url: url, company_name: company || undefined })
       });
       const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create job');
-      }
+      if (!data.success) throw new Error(data.error || 'Failed');
 
       activeQuickJobId = data.jobId;
-      document.getElementById('tryStatus').textContent = 'Job queued — waiting for processing to start...';
-
-      // Fallback polling in case SSE misses events
+      document.getElementById('tryStatus').textContent = 'Queued — waiting for processing...';
       pollQuickJob(data.jobId);
-
     } catch (err) {
       btn.disabled = false;
       btn.textContent = 'Generate Demo';
@@ -811,52 +596,35 @@
     }
   }
 
-  // Hook into SSE to track quick demo progress
-  const originalOnMessage = null;
   function handleQuickDemoSSE(data) {
-    if (!activeQuickJobId) return;
-    if (data.jobId !== activeQuickJobId) return;
-
+    if (!activeQuickJobId || data.jobId !== activeQuickJobId) return;
     const progress = document.getElementById('tryProgress');
     const result = document.getElementById('tryResult');
     const btn = document.getElementById('generateBtn');
-    const statusEl = document.getElementById('tryStatus');
-    const barEl = document.getElementById('tryProgressBar');
 
     if (data.type === 'job_started') {
-      statusEl.textContent = 'Scraping website, generating enhanced version...';
-      barEl.className = 'progress-bar-fill indeterminate';
+      document.getElementById('tryStatus').textContent = 'Scraping website and generating demo...';
     } else if (data.type === 'job_completed') {
-      // Done!
-      barEl.className = 'progress-bar-fill';
-      barEl.style.width = '100%';
-      statusEl.textContent = 'Demo ready!';
-
+      document.getElementById('tryProgressBar').className = 'progress-bar-fill';
+      document.getElementById('tryProgressBar').style.width = '100%';
+      document.getElementById('tryStatus').textContent = 'Done!';
       const demoUrl = data.demoUrl || '';
       result.classList.add('show');
-      result.innerHTML = `
-        <div class="result-link">
-          <a href="${esc(demoUrl)}" target="_blank">${esc(demoUrl)}</a>
-          <button class="copy-btn" onclick="copyLink('${esc(demoUrl)}')">Copy Link</button>
-          <a href="${esc(demoUrl)}" target="_blank" class="copy-btn" style="text-decoration:none;">Open</a>
-        </div>
-      `;
-
-      btn.disabled = false;
-      btn.textContent = 'Generate Demo';
-      activeQuickJobId = null;
-      fetchAll(); // Refresh table
+      result.innerHTML = `<div class="result-success">
+        <a href="${esc(demoUrl)}" target="_blank">${esc(demoUrl)}</a>
+        <button class="btn-sm btn-copy" onclick="copyLink('${esc(demoUrl)}')">Copy Link</button>
+        <a href="${esc(demoUrl)}" target="_blank" class="btn-sm btn-open">Open</a>
+      </div>`;
+      btn.disabled = false; btn.textContent = 'Generate Demo';
+      activeQuickJobId = null; fetchAll();
     } else if (data.type === 'job_failed') {
-      barEl.className = 'progress-bar-fill';
-      barEl.style.width = '100%';
-      barEl.style.background = '#ef4444';
-      statusEl.textContent = 'Generation failed';
-
+      document.getElementById('tryProgressBar').className = 'progress-bar-fill';
+      document.getElementById('tryProgressBar').style.width = '100%';
+      document.getElementById('tryProgressBar').style.background = '#dc2626';
+      document.getElementById('tryStatus').textContent = 'Failed';
       result.classList.add('show');
-      result.innerHTML = `<div class="result-error">Failed: ${esc(data.error || 'Unknown error')}</div>`;
-
-      btn.disabled = false;
-      btn.textContent = 'Generate Demo';
+      result.innerHTML = `<div class="result-error">${esc(data.error || 'Unknown error')}</div>`;
+      btn.disabled = false; btn.textContent = 'Generate Demo';
       activeQuickJobId = null;
     }
   }
@@ -872,22 +640,64 @@
       } else if (job.status === 'failed') {
         handleQuickDemoSSE({ type: 'job_failed', jobId, error: job.error_message });
         return;
+      } else if (job.status?.includes('processing')) {
+        document.getElementById('tryStatus').textContent = 'Scraping website and generating demo...';
       }
     } catch {}
-    // Keep polling every 5s while job is active
-    if (activeQuickJobId === jobId) {
-      setTimeout(() => pollQuickJob(jobId), 5000);
-    }
+    if (activeQuickJobId === jobId) setTimeout(() => pollQuickJob(jobId), 5000);
   }
 
   function copyLink(url) {
     navigator.clipboard.writeText(url).then(() => showToast('Link copied!', 'success'));
   }
 
+  // --- Modal ---
+  async function showJobDetail(jobId) {
+    document.getElementById('modalOverlay').classList.add('show');
+    document.getElementById('modalTitle').textContent = 'Loading...';
+    document.getElementById('modalContent').innerHTML = '';
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      const { job, logs } = await res.json();
+      document.getElementById('modalTitle').textContent = `Job ${job.id.substring(0, 8)}...`;
+      let html = `<div class="modal-grid">
+        <div><span class="label">Company:</span> ${esc(job.company_name || job.name || '-')}</div>
+        <div><span class="label">Email:</span> ${esc(job.email || 'N/A (quick demo)')}</div>
+        <div><span class="label">Website:</span> ${job.website_url ? `<a href="${esc(job.website_url)}" target="_blank">${esc(job.website_url)}</a>` : '-'}</div>
+        <div><span class="label">Status:</span> <span class="badge badge-${job.status}">${job.status}</span></div>
+        <div><span class="label">Demo:</span> ${job.demo_url ? `<a href="${esc(job.demo_url)}" target="_blank">View</a>` : '-'}</div>
+        <div><span class="label">Retries:</span> ${job.retry_count || 0}</div>
+      </div>`;
+      if (job.error_message) html += `<div class="modal-error">${esc(job.error_message)}</div>`;
+      html += '<h3 style="font-size:13px;color:#9ca3af;margin-bottom:8px;">Execution Log</h3>';
+      if (logs?.length) {
+        html += logs.map(l => `<div class="log-entry"><span class="step">${esc(l.step)}</span><span class="time">${new Date(l.created_at).toLocaleTimeString()}</span><div style="margin-top:3px;">${esc(l.message)}</div></div>`).join('');
+      } else {
+        html += '<div style="color:#9ca3af;font-size:12px;">No logs</div>';
+      }
+      document.getElementById('modalContent').innerHTML = html;
+    } catch { document.getElementById('modalContent').innerHTML = '<div class="result-error">Failed to load</div>'; }
+  }
+
+  function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+  document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === document.getElementById('modalOverlay')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // --- Toast ---
+  function showToast(msg, type = 'success') {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // --- Helpers ---
+  function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
   // --- Init ---
   connectSSE();
   fetchAll();
-  // Fallback polling every 30s in case SSE disconnects
   setInterval(fetchAll, 30000);
 </script>
 </body>
