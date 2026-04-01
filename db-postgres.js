@@ -101,6 +101,9 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_demo_views_demo_id ON demo_views(demo_id);
     `);
 
+    // Allow website_url to be NULL (no-website flow)
+    await client.query(`ALTER TABLE jobs ALTER COLUMN website_url DROP NOT NULL`).catch(() => {});
+
     // Add no-website flow columns (safe — IF NOT EXISTS)
     const newCols = [
       ['has_website', 'BOOLEAN DEFAULT TRUE'],
