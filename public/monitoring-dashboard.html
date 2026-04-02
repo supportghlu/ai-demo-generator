@@ -371,8 +371,8 @@
     <div class="card-header">
       <span class="card-title">Quick Demo Generator</span>
       <div class="filters">
-        <button class="filter-btn active" data-mode="has-website" onclick="setDemoMode('has-website', this)">Has a website</button>
-        <button class="filter-btn" data-mode="no-website" onclick="setDemoMode('no-website', this)">Needs a website</button>
+        <button class="mode-btn filter-btn active" data-mode="has-website" onclick="setDemoMode('has-website', this)">Has a website</button>
+        <button class="mode-btn filter-btn" data-mode="no-website" onclick="setDemoMode('no-website', this)">Needs a website</button>
       </div>
     </div>
     <!-- Has website form -->
@@ -467,7 +467,7 @@
 
   function setDemoMode(mode, btn) {
     demoMode = mode;
-    document.querySelectorAll('.card-header .filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('websiteForm').style.display = mode === 'has-website' ? 'flex' : 'none';
     document.getElementById('noWebsiteForm').style.display = mode === 'no-website' ? 'flex' : 'none';
@@ -553,8 +553,9 @@
     tbody.innerHTML = filtered.map(job => {
       const id = job.id?.substring(0, 8) || '-';
       const company = job.company_name || job.name || '-';
-      const url = job.website_url || '-';
-      const urlShort = url.replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+      const url = job.website_url || '';
+      const urlShort = url ? url.replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+      const businessDesc = !url && (job.business_type || job.location) ? `${job.business_type || ''} in ${job.location || ''}`.trim() : '';
       const status = job.status || 'unknown';
       const badge = status.includes('processing') ? 'processing' : status;
       const created = job.created_at ? new Date(job.created_at).toLocaleString() : '-';
@@ -568,7 +569,7 @@
       return `<tr>
         <td><a href="javascript:void(0)" onclick="showJobDetail('${job.id}')">${id}...</a></td>
         <td>${esc(company)}</td>
-        <td class="url-cell">${url !== '-' ? `<a href="${esc(url)}" target="_blank">${esc(urlShort)}</a>` : '-'}</td>
+        <td class="url-cell">${urlShort ? `<a href="${esc(url)}" target="_blank">${esc(urlShort)}</a>` : (businessDesc ? `<span style="color:#9ca3af;">${esc(businessDesc)}</span>` : '-')}</td>
         <td>${job.demo_url ? `<a href="${esc(job.demo_url)}" target="_blank">View Demo</a>` : '-'}</td>
         <td><span class="badge badge-${badge}">${status}</span></td>
         <td>${viewCount > 0 ? `<span style="font-weight:600;">${viewCount}</span> <span style="color:#9ca3af;font-size:11px;">${firstViewed}</span>` : '-'}</td>
@@ -581,10 +582,10 @@
     }).join('');
   }
 
-  // --- Filters ---
-  document.querySelectorAll('.filter-btn').forEach(btn => {
+  // --- Job Filters (only target buttons with data-filter, not mode toggle) ---
+  document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.filter-btn[data-filter]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentFilter = btn.dataset.filter;
       renderJobs();
