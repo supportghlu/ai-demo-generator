@@ -110,7 +110,7 @@ app.get('/demo/:slug/*', async (req, res) => {
 // Serve demo index — /demo/:slug (redirect to ensure trailing slash)
 app.get('/demo/:slug', async (req, res) => {
   const slug = req.params.slug;
-  trackView(slug, 'index.html', req);
+  // Don't track here — the redirect to /demo/:slug/ will track via the /* route
 
   if (hasFileStorage) {
     // Check if demo exists in database
